@@ -1,0 +1,14 @@
+Makefile.PL
+MANIFEST
+pm_to_blib
+lib/IO/Socket/DDP.pm
+lib/Net/Atalk.pm
+lib/Net/Atalk/PAP.pm
+lib/Net/Atalk/ATP.pm
+lib/Net/Atalk/ASP.pm
+lib/Net/Atalk/ZIP.pm
+lib/Net/Atalk/NBP.pm
+examples/aecho.pl
+examples/getzones.pl
+examples/nbplkup.pl
+Makefile
