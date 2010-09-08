@@ -10,18 +10,6 @@ use threads::shared;	# for share
 use strict;
 use warnings;
 
-use constant kASPNoError		=> 0;
-use constant kASPBadVersNum		=> -1066;
-use constant kASPBufTooSmall	=> -1067;
-use constant kASPNoMoreSessions	=> -1068;
-use constant kASPNoServers		=> -1069;
-use constant kASPParamErr		=> -1070;
-use constant kASPServerBusy		=> -1071;
-use constant kASPSessClosed		=> -1072;
-use constant kASPSizeErr		=> -1073;
-use constant kASPTooManyClients	=> -1074;
-use constant kASPNoAck			=> -1075;
-
 =head1 NAME
 
 Net::Atalk::ASP - Object interface for AppleTalk Session Protocol

@@ -7,6 +7,18 @@ package Net::Atalk::ATP;
 use strict;
 use warnings;
 
+use constant kASPNoError		=> 0;
+use constant kASPBadVersNum		=> -1066;
+use constant kASPBufTooSmall	=> -1067;
+use constant kASPNoMoreSessions	=> -1068;
+use constant kASPNoServers		=> -1069;
+use constant kASPParamErr		=> -1070;
+use constant kASPServerBusy		=> -1071;
+use constant kASPSessClosed		=> -1072;
+use constant kASPSizeErr		=> -1073;
+use constant kASPTooManyClients	=> -1074;
+use constant kASPNoAck			=> -1075;
+
 # Disabling strict refs because for the installable transaction filters
 # to work, I have to be able to have some way to deref the subroutines,
 # and we can't pass SUB refs from thread to thread.
@@ -121,7 +133,9 @@ use constant ATP_MAXLEN			=> 578;
 
 # symbols to export
 our @EXPORT = qw(ATP_TREL_30SEC ATP_TREL_1MIN ATP_TREL_2MIN ATP_TREL_4MIN
-		ATP_TREL_8MIN ATP_MAXLEN);
+		ATP_TREL_8MIN ATP_MAXLEN kASPNoError kASPBadVersNum kASPBufTooSmall
+		kASPNoMoreSessions kASPNoServers kASPParamErr kASPServerBusy
+		kASPSessClosed kASPSizeErr kASPTooManyClients kASPNoAck);
 
 my $atp_header :shared;
 $atp_header = 'CCCna[4]a*';
