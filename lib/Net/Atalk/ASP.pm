@@ -54,7 +54,7 @@ sub new { # {{{1
 
 	my $obj = bless {}, $class;
 	$$obj{'atpsess'} = new Net::Atalk::ATP();
-	return undef unless defined $$obj{'atpsess'};
+	return unless defined $$obj{'atpsess'};
 	$$obj{'host'} = $host;
 	$$obj{'svcport'} = $port;
 	$$obj{'last_tickle'} = undef;
@@ -73,7 +73,7 @@ sub _TickleFilter { # {{{1
 		$$lt_ref = time();
 		return [];
 	}
-	return undef;
+	return;
 } # }}}1
 
 sub _TickleCheck {
@@ -94,7 +94,7 @@ sub _AttnFilter { # {{{1
 		push(@$attnq_r, $attncode);
 		return [ { 'userbytes' => pack('x[4]'), 'data' => ''} ];
 	}
-	return undef;
+	return;
 } # }}}1
 
 sub _CloseFilter { # {{{1
@@ -106,7 +106,7 @@ sub _CloseFilter { # {{{1
 		$$shared{'exit'} = 1;
 		return [ { 'userbytes' => pack('x[4]'), 'data' => ''} ];
 	}
-	return undef;
+	return;
 } # }}}1
 
 =head2 METHODS
@@ -204,7 +204,7 @@ an appropriate SPError value is returned.
 sub SPOpenSession { # {{{1
 	my ($self) = @_;
 
-	my $wss = $$self{'atpsess'}->sockport();;
+	my $wss = $$self{'atpsess'}->sockport();
 	my $msg = pack('CCn', OP_SP_OPENSESS, $wss, SP_VERSION);
 	my $sa = pack_sockaddr_at($$self{'svcport'} , atalk_aton($$self{'host'}));
 	my ($rdata, $success);
@@ -294,7 +294,7 @@ sub SPCloseSession { # {{{1
 
 Once a session has been opened, the workstation end client can send a
 command to the server end by issuing an C<SPCommand> call to ASP. A
-command block of maximum size (L<MaxCmdSize>) can be send with the
+command block of maximum size (L<MaxCmdSize>) can be sent with the
 command. If the length of MESSAGE is greater than the maximum allowable
 size, the call returns an error of kASPSizeErr; in this case, no effort
 is made to send anything to the server end.

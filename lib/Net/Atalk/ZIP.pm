@@ -71,13 +71,13 @@ sub ZIPQuery {
 	my $zonemap = {};
 	my $poll = new IO::Poll();
 	$poll->mask($sock, POLLIN);
-	return undef unless $poll->poll(2);
+	return unless $poll->poll(2);
 	my $rbuf;
 	my $from = recv($sock, $rbuf, DDP_MAXSZ, 0);
-	return undef unless defined $from;
+	return unless defined $from;
 	my ($ddptype, $ziptype) = unpack('CC', $rbuf);
-	return undef unless $ddptype == DDPTYPE_ZIP;
-	return undef unless $ziptype == ZIP_Query_Resp ||
+	return unless $ddptype == DDPTYPE_ZIP;
+	return unless $ziptype == ZIP_Query_Resp ||
 			$ziptype == ZIP_Query_RespExt;
 	my @data = unpack('xxC/(nC/a*)', $rbuf);
 	my %namedata;
@@ -103,7 +103,7 @@ sub ZIPGetZoneList {
 	my %sockopts;
 	if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
 	my $conn = new Net::Atalk::ATP(%sockopts);
-	return undef unless defined $conn;
+	return unless defined $conn;
 
 	my $port = getservbyname('zip', 'ddp') || 6;
 	my $dest = pack_sockaddr_at($port, ATADDR_ANY);
@@ -129,7 +129,7 @@ sub ZIPGetZoneList {
 		return wantarray() ? ([@zonenames], $LastFlag) : [@zonenames];
 	}
 	$! = ETIMEDOUT;
-	return undef;
+	return;
 }
 
 =item ZIPGetLocalZones (FROMADDR, STARTINDEX)
@@ -145,7 +145,7 @@ sub ZIPGetLocalZones {
 	my %sockopts;
 	if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
 	my $conn = new Net::Atalk::ATP(%sockopts);
-	return undef unless defined $conn;
+	return unless defined $conn;
 
 	my $port = getservbyname('zip', 'ddp') || 6;
 	my $dest = pack_sockaddr_at($port, ATADDR_ANY);
@@ -171,7 +171,7 @@ sub ZIPGetLocalZones {
 		return wantarray() ? ([@zonenames], $LastFlag) : [@zonenames];
 	}
 	$! = ETIMEDOUT;
-	return undef;
+	return;
 }
 
 =item ZIPGetMyZone (FROMADDR)
@@ -186,7 +186,7 @@ sub ZIPGetMyZone {
 	my %sockopts;
 	if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
 	my $conn = new Net::Atalk::ATP(%sockopts);
-	return undef unless defined $conn;
+	return unless defined $conn;
 
 	my $port = getservbyname('zip', 'ddp') || 6;
 	my $dest = pack_sockaddr_at($port, ATADDR_ANY);
@@ -213,7 +213,7 @@ sub ZIPGetMyZone {
 		return $zonename;
 	}
 	$! = ETIMEDOUT;
-	return undef;
+	return;
 }
 
 =item ZIPGetNetInfo (ZONENAME) 
@@ -240,13 +240,13 @@ sub ZIPGetNetInfo {
 
 	my $poll = new IO::Poll();
 	$poll->mask($sock, POLLIN);
-	return undef unless $poll->poll(2);
+	return unless $poll->poll(2);
 	my $rbuf;
 	my $from = recv($sock, $rbuf, DDP_MAXSZ, 0);
-	return undef unless defined $from;
+	return unless defined $from;
 	my ($ddptype, $ziptype) = unpack('CC', $rbuf);
-	return undef unless $ddptype == DDPTYPE_ZIP;
-	return undef unless $ziptype == ZIP_GetNetInfo_Resp;
+	return unless $ddptype == DDPTYPE_ZIP;
+	return unless $ziptype == ZIP_GetNetInfo_Resp;
 	my (%zoneinfo, $extra, $flags);
 	($flags, @zoneinfo{'NetNum_start', 'NetNum_end', 'zonename', 'mcastaddr'},
 			$extra) = unpack('xxCnnC/a*C/a*a*', $rbuf);

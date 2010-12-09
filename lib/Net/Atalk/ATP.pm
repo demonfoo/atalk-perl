@@ -735,7 +735,7 @@ sub GetTransaction { # {{{1
 	# If we reach this point, the caller didn't ask to block *and* no
 	# transactions matched (or none were in the waiting queue), so just
 	# send back an undef.
-	return undef;
+	return;
 } # }}}1
 
 =item RespondTransaction (RQCB, RESP_R)
