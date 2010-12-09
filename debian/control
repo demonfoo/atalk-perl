@@ -1,0 +1,14 @@
+Source: libnet-atalk-perl
+Section: perl
+Priority: optional
+Maintainer: Derrik Pates <demon@now.ai>
+Standards-Version: 3.8.0
+Build-Depends: debhelper (>= 7), perl (>= 5.10.0), quilt (>= 0.46-7)
+
+Package: libnet-atalk-perl
+Architecture: all
+Depends: ${misc:Depends}, ${perl:Depends}
+Description: Use AppleTalk socket functionality from a Perl script
+ Net::Atalk is a Perl implementation of several layers of AppleTalk
+ network functionality. It allows the use of DDP, ATP and ASP sockets,
+ NBP name resolution, and querying ZIP zone information.
