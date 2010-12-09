@@ -1,8 +1,8 @@
 Makefile.PL
 MANIFEST
+README
 lib/IO/Socket/DDP.pm
 lib/Net/Atalk.pm
-lib/Net/Atalk/PAP.pm
 lib/Net/Atalk/ATP.pm
 lib/Net/Atalk/ASP.pm
 lib/Net/Atalk/ZIP.pm
