@@ -8,6 +8,7 @@ Build-Depends: debhelper (>= 7), perl (>= 5.10.0), quilt (>= 0.46-7)
 Package: libnet-atalk-perl
 Architecture: all
 Depends: ${misc:Depends}, ${perl:Depends}
+Provides: libio-socket-ddp-perl
 Description: Use AppleTalk socket functionality from a Perl script
  Net::Atalk is a Perl implementation of several layers of AppleTalk
  network functionality. It allows the use of DDP, ATP and ASP sockets,
