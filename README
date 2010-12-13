@@ -1,4 +1,5 @@
-Introduction:
+Net::Atalk version 0.50
+=======================
 
 Net::Atalk is a collection of pure Perl modules, implementing interfaces to
 several of the AppleTalk core protocols. Specifically, it includes
@@ -26,19 +27,24 @@ running the receive dispatcher as a thread. On FreeBSD, you will need
 to build a threaded Perl from ports; NetBSD, Mac OS X, and most Linux
 distributions do so by default, so the normal packages work perfectly.
 
-Building:
+
+INSTALLATION
 
 Building the package is pretty much the normal process as with any Perl
 module.
 
-tar zxf Net-Atalk-<version>.tar.gz -C <target dir>
-cd <target dir>/Net-Atalk-<version>
 perl Makefile.PL
 make
-sudo make install
+make install
 
-That's all!
 
--- 
-Derrik Pates
-demon@now.ai
+DEPENDENCIES
+
+All dependencies are satisfied by the packages distributed with Perl.
+
+
+COPYRIGHT AND LICENSE
+
+Copyright (C) 2009-2010 Derrik Pates
+
+
