@@ -71,7 +71,7 @@ find %{buildroot}%{_prefix}             \
 
 %{__perl} -MFile::Find -le '
     find({ wanted => \&wanted, no_chdir => 1}, "%{buildroot}");
-    print "%doc  README";
+    print "%doc  README Todo";
     for my $x (sort @dirs, @files) {
         push @ret, $x unless indirs($x);
         }
