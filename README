@@ -10,16 +10,15 @@ information via ZIP. Sample scripts are also included which implement
 aecho, nbplkup and getzones tools in Perl, so if your system has AppleTalk
 support, is running atalkd, and is configured correctly for AppleTalk
 services, the tools will operate as the C-based alternatives from the
-netatalk distribution do. (Also verified functional on NetBSD. Should
-work on FreeBSD, but I've not built a custom kernel with AppleTalk
-socket support to verify.)
+netatalk distribution do. (Also verified functional on NetBSD and FreeBSD.)
 
 This package is mainly intended for my Perl AFP stack (Net::AFP) to
 be able to access AFP mounts via AppleTalk, but could potentially be
-used to talk to any AppleTalk-based service. I have not implemented ADSP
-support, as there's nothing (as far as I know) that actually uses it.
-That said, there's nothing *preventing* someone from implementing it.
-I also intend to implement a PAP client as well, but it's not complete yet.
+used to talk to any AppleTalk-based service, or write your own
+AppleTalk-based service. I have not implemented ADSP support, as there's
+nothing (as far as I know) that actually uses it. That said, there's
+nothing *preventing* someone from implementing it. I also intend to
+implement a PAP client as well, but it's not complete yet.
 
 This package does require a threaded Perl; the response and resend
 handling wasn't really doable (at least that I could figure) without
