@@ -31,5 +31,6 @@ my($host, $port) = @{$tuples[0]}[0,1];
 my $papconn = new Net::Atalk::PAP($host, $port, %sockparms);
 my $status;
 if ($papconn->PAPStatus(\$status)) {
-    print "status: ", $status, "\n";
+    print $status, "\n";
 }
+
