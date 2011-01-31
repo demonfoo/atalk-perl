@@ -6,6 +6,7 @@ use diagnostics;
 
 use Net::Atalk::ATP;
 use Net::Atalk;
+use threads::shared;
 
 use constant PAP_OpenConn           => 1;
 use constant PAP_OpenConnReply      => 2;
@@ -65,7 +66,7 @@ sub PAPStatus {
     return 1;
 }
 
-sub PAPOpen {
+sub PAPOpenConn {
     my ($self, $waittime, $resp_r) = @_;
 
     die('$resp_r must be a scalar ref')
@@ -82,7 +83,7 @@ sub PAPOpen {
     my $sa = pack_sockaddr_at($$self{'svcport'} , atalk_aton($$self{'host'}));
 
     my($rdata, $success);
-    my $sem = $$obj{'atpsess'}->SendTransaction(
+    my $sem = $$self{'atpsess'}->SendTransaction(
             'UserBytes'         => $ub,
             'ResponseLength'    => 1,
             'ResponseStore'     => \$rdata,
@@ -108,13 +109,56 @@ sub PAPOpen {
 }
 
 
-sub SendData {
+sub PAPSendData {
     my ($self, $data) = @_;
 
-    my $RqCB = $$self{'rsock'}->GetTransaction(1, sub {
-            my ($connid, $fnid, $seqno) = unpack('CCn', $_[0]{'userbytes'});
-            return ($connid == $$self{'connid'} && fnid == PAP_SendData);
-        });
+    my $len = length($data);
+    my $pos = 0;
+    my $chunksize = 512;
+    my($resp, $elem);
+
+    while ($pos < $len) {
+        my $RqCB = $$self{'rsock'}->GetTransaction(1, sub {
+                my ($connid, $fnid, $seqno) = unpack('CCn', $_[0]{'userbytes'});
+                return ($connid == $$self{'connid'} && $fnid == PAP_SendData);
+            });
+
+        my ($seqno) = unpack('xxn', $$RqCB{'userbytes'});
+
+        $resp = &share([]);
+        $elem = &share({});
+        %$elem = ( 'userbytes'  => pack('CCCx', $$self{'connid'}, PAP_Data,
+                                        $len - $pos <= $chunksize),
+                   'data'       => substr($data, $pos, $chunksize) );
+
+        $$self{'rsock'}->RespondTransaction($RqCB, $resp);
+        $pos += $chunksize;
+    }
+}
+
+sub PAPCloseConn {
+    my ($self) = @_;
+
+    die('Response socket does not exist - PAP session not open')
+            unless exists $$self{'rsock'};
+
+    my $ub = pack('CCx[2]', $$self{'connid'}, PAP_CloseConn);
+    my($rdata, $success);
+    my $sem = $$self{'rsock'}->SendTransaction(
+            'UserBytes'         => $ub,
+            'ResponseLength'    => 1,
+            'ResponseStore'     => \$rdata,
+            'StatusStore'       => \$success,
+            'Timeout'           => 2,
+            'NumTries'          => 5,
+            'ExactlyOnce'       => ATP_TREL_30SEC,
+    );
+    $sem->down();
+    unless ($success) {
+        return undef;
+    }
+    return 0;
+
 }
 1;
 # vim: ts=4 ai fdm=marker
