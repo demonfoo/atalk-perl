@@ -9,7 +9,7 @@ use Net::Atalk;
 use Getopt::Long;
 
 sub usage {
-    print STDERR "\n";
+    print STDERR "Usage:  ", $0, " [ -A address ] [ -p printername ]\n";
     exit(1);
 }
 
