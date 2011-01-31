@@ -33,4 +33,4 @@ my $status;
 if ($papconn->PAPStatus(\$status)) {
     print substr($status, 1), "\n";
 }
-
+$papconn->close();
