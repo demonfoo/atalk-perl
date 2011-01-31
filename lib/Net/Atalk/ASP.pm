@@ -404,7 +404,7 @@ sub SPWrite { # {{{1
 
     my $sendsize = 0;
     my $totalsend = 0;
-    for (my $i = 0; $i < 8; $i++) { # {{{2
+    foreach my $i (0 .. 7) { # {{{2
         last if $totalsend >= $d_len;
         $sendsize = ATP_MAXLEN;
         if ($bufsize - $totalsend < ATP_MAXLEN) {
