@@ -38,6 +38,11 @@ sub new {
     return $obj;
 }
 
+sub close {
+    my ($self) = @_;
+    $self->{'atpsess'}->close();
+}
+
 sub PAPStatus {
     my ($self, $resp_r) = @_;
 
