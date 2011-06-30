@@ -346,7 +346,7 @@ of the ASP session and, as previously described, the server end can
 then transfer the write data or return an error (delivered in the
 result code field).
 
-Thee actual amount of data sent will be less than or equal to the
+The actual amount of data sent will be less than or equal to the
 length of the data chunk provided and will never be larger than
 L<QuantumSize>. The amount of write data actually transferred is
 returned in the response block.
