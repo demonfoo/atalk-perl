@@ -122,6 +122,9 @@ sub PAPSendData {
     my $chunksize = 512;
     my($resp, $elem);
 
+    die('Response socket does not exist - PAP session not open')
+            unless exists $$self{'rsock'};
+
     while ($pos < $len) {
         my $RqCB = $$self{'rsock'}->GetTransaction(1, sub {
                 my ($connid, $fnid, $seqno) = unpack('CCn', $_[0]{'userbytes'});
