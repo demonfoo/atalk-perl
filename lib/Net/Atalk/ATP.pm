@@ -295,34 +295,34 @@ MAINLOOP:
         }
         foreach $txid (keys %{$$shared{'TxCB_list'}}) { # {{{3
             $TxCB = $$shared{'TxCB_list'}{$txid};
-            if (($time - $$TxCB{'stamp'}) >= $$TxCB{'tmout'}) {
-                # We're past the indicated timeout duration for the
-                # transaction, so now we have to decide its fate.
-                if (!$$TxCB{'ntries'}) {
-                    # Okay, you've had enough go-arounds. Time to put
-                    # this dog down.
-                    ${$$TxCB{'sflag'}} = 0;
-                    delete $$shared{'TxCB_list'}{$txid};
-                    $$TxCB{'sem'}->up();
-                    next;
-                }
+            next if (($time - $$TxCB{'stamp'}) < $$TxCB{'tmout'});
 
-                # Packet data needs to be resent; sequence mask will
-                # be updated in-place elsewhere, so just need to send
-                # again, decrement the retry counter, and update
-                # the start timer.
-
-                # -1 is special, it means "just keep trying forever"
-                if ($$TxCB{'ntries'} != -1) { $$TxCB{'ntries'}-- }
-
-                # Update packet data with new sequence bitmap.
-                substr($$TxCB{'msg'}, 2, 1, pack('C', $$TxCB{'seq_bmp'}));
-
-                $$shared{'conn_sem'}->down();
-                send($conn, $$TxCB{'msg'}, 0, $$TxCB{'target'});
-                $$TxCB{'stamp'} = $time;
-                $$shared{'conn_sem'}->up();
+            # We're past the indicated timeout duration for the
+            # transaction, so now we have to decide its fate.
+            if (!$$TxCB{'ntries'}) {
+                # Okay, you've had enough go-arounds. Time to put
+                # this dog down.
+                ${$$TxCB{'sflag'}} = 0;
+                delete $$shared{'TxCB_list'}{$txid};
+                $$TxCB{'sem'}->up();
+                next;
             }
+
+            # Packet data needs to be resent; sequence mask will
+            # be updated in-place elsewhere, so just need to send
+            # again, decrement the retry counter, and update
+            # the start timer.
+
+            # -1 is special, it means "just keep trying forever"
+            if ($$TxCB{'ntries'} != -1) { $$TxCB{'ntries'}-- }
+
+            # Update packet data with new sequence bitmap.
+            substr($$TxCB{'msg'}, 2, 1, pack('C', $$TxCB{'seq_bmp'}));
+
+            $$shared{'conn_sem'}->down();
+            send($conn, $$TxCB{'msg'}, 0, $$TxCB{'target'});
+            $$TxCB{'stamp'} = $time;
+            $$shared{'conn_sem'}->up();
         } # }}}3
 
         # Check the XO transaction completion list as well.
