@@ -52,15 +52,13 @@ sub usage {
 }
 
 sub send_echo {
-    # Have to save $!, because we happily stomp all over it with our crap.
-    my $orig_err = $!;
+    # Declare $! as local so error codes in this context don't leak out.
+    local $!;
     my $msg = pack('CCLLL', DDPTYPE_AEP, AEPOP_REQUEST, $sent++,
             gettimeofday());
     die "send() failed: $!" unless defined send($sock, $msg, 0, $dest);
     if ($count && $sent > $count) { finish() }
     $SIG{'ALRM'} = \&send_echo;
-    # And restore $! before we go...
-    $! = $orig_err;
 }
 
 sub finish {
