@@ -117,7 +117,7 @@ sub NBPLookup {
 
     # Pack a sockaddr_at for the broadcast address with the port number we
     # get above.
-    my $dest = pack_sockaddr_at($port, atalk_aton('0.255'));
+    my $dest = pack_sockaddr_at($port, ATADDR_BCAST);
 
     my %rset;
     my @records;
