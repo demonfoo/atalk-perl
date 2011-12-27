@@ -20,11 +20,13 @@ my $port = getservbyname('echo', 'ddp') || 4;
 
 my ($msec_total, $msec_min, $msec_max, $sent, $rcvd, $dups) =
         (0, -1, -1, 0, 0, 0);
-my $count = 0;
-my %sockparms = ('Proto' => 'ddp');
+my $count       = 0;
+my $interval    = 1.0;
+my %sockparms   = ('Proto' => 'ddp');
 
 GetOptions( 'c=i'   => \$count,
-            'A=s'   => sub { $sockparms{'LocalAddr'} = $_[1] },
+            'I=s'   => sub { $sockparms{'LocalAddr'} = $_[1] },
+            'i=f'   => \$interval,
             'b'     => sub { $sockparms{'Broadcast'} = 1 },
             'h'     => \&usage ) || usage();
 
@@ -50,7 +52,7 @@ my $dest = pack_sockaddr_at($port, $paddr);
 
 sub usage {
     print "usage:\t", $0,
-            " [-A source address ] [-c count] [-b] ( addr | nbpname )\n";
+            " [-I source address] [-i interval] [-c count] [-b] ( addr | nbpname )\n";
     exit(1);
 }
 
@@ -81,7 +83,7 @@ sub finish {
 $SIG{'INT'} = \&finish;
 $SIG{'ALRM'} = \&send_echo;
 
-setitimer(ITIMER_REAL, 1.0, 1.0);
+setitimer(ITIMER_REAL, $interval, $interval);
 
 while (1) {
     my $rbuf;
