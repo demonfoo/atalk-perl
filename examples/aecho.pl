@@ -35,7 +35,9 @@ my $paddr = atalk_aton($target);
 unless (defined $paddr) {
     $target =~ s/(?::([\w\s\-]*|=))?(?:\@(\w*|\*))?$//;
     my ($type, $zone) = ($1, $2);
-    my @tuples = NBPLookup($target, $type, $zone, exists $sockparms{'LocalAddr'} ? $sockparms{'LocalAddr'} : undef, 1);
+    my @tuples = NBPLookup($target, $type, $zone,
+            exists $sockparms{'LocalAddr'} ? $sockparms{'LocalAddr'} : undef,
+            1);
     unless (scalar(@tuples)) {
         printf(STDERR "Can't resolve \"\%s\"\n", $target);
         exit(1);
@@ -47,7 +49,8 @@ my $sock = new IO::Socket::DDP(%sockparms) or die "Can't bind: $@";
 my $dest = pack_sockaddr_at($port, $paddr);
 
 sub usage {
-    print "usage:\t", $0, " [-A source address ] [-c count] [-b] ( addr | nbpname )\n";
+    print "usage:\t", $0,
+            " [-A source address ] [-c count] [-b] ( addr | nbpname )\n";
     exit(1);
 }
 
@@ -101,4 +104,4 @@ while (1) {
     if ($count && $seqno + 1 >= $count) { finish() }
 }
 
-# vim: ts=4
+# vim: ts=4 et ai

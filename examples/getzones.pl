@@ -48,3 +48,5 @@ if (ref($zonelist) eq 'ARRAY') {
 } else {
     print $zonelist, "\n";
 }
+
+# vim: ts=4 et ai

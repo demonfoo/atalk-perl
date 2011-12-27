@@ -21,7 +21,7 @@ Net::Atalk::ZIP - AppleTalk Zone Information Protocol operations
 
 =head1 DESCRIPTION
 
-C<Net::Atalk::NBP> provides functions for getting information about
+C<Net::Atalk::ZIP> provides functions for getting information about
 AppleTalk zones, including getting the local zone name, enumerating
 zones known to AppleTalk routers, and net number range information
 for known zones.
@@ -56,7 +56,7 @@ sub ZIPQuery {
     my (@netnums) = @_;
 
     my $port = getservbyname('zip', 'ddp') || 6;
-    # Bind a local, broadcast-capable socket for sending out NBP
+    # Bind a local, broadcast-capable socket for sending out ZIP
     # packets from (and receiving responses).
     my %sockparms = ( 'Proto'       => 'ddp',
                       'Broadcast'   => 1 );
@@ -226,7 +226,7 @@ sub ZIPGetNetInfo {
     my ($zonename) = @_;
 
     my $port = getservbyname('zip', 'ddp') || 6;
-    # Bind a local, broadcast-capable socket for sending out NBP
+    # Bind a local, broadcast-capable socket for sending out ZIP
     # packets from (and receiving responses).
     my %sockparms = ( 'Proto'       => 'ddp',
                       'Broadcast'   => 1 );
