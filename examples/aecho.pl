@@ -82,11 +82,21 @@ sub finish {
                 $msec_min, $msec_total / ($rcvd + $dups), $msec_max);
         }
     }
-    exit(0);
+    exit($rcvd < 1);
+}
+
+sub status {
+    if ($sent) {
+        printf("\%d/\%d packets, \%d\%\% loss, min/avg/max = \%.3f/\%.3f/\%.3f ms\n",
+                $sent, $rcvd, ($sent - $rcvd) * 100 / $sent, $msec_min,
+                $msec_total / ($rcvd + $dups), $msec_max);
+    }
+    $SIG{'QUIT'} = \&status;
 }
 
 $SIG{'INT'} = \&finish;
 $SIG{'ALRM'} = \&send_echo;
+$SIG{'QUIT'} = \&status;
 
 setitimer(ITIMER_REAL, $interval, $interval);
 
@@ -109,7 +119,7 @@ while (1) {
     unless ($quiet) {
         printf("[%f] ", time()) if $print_stamp;
         printf("\%d bytes from \%s: aep_seq=\%d, \%.3f msec\n", length($rbuf),
-                $haddr, $seqno, $delta);;
+                $haddr, $seqno, $delta);
     }
     if ($count && $seqno + 1 >= $count) { finish() }
 }
