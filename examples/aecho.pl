@@ -137,7 +137,7 @@ while (1) {
     my $delta;
     if ($timing) {
         my ($now_sec, $now_usec) = gettimeofday();
-        my ($t_sec, $t_usec);
+        my ($t_sec, $t_usec) = unpack('L!L!', $trailer);
         $delta = ($now_sec - $t_sec) * 1000 + ($now_usec - $t_usec) / 1000;
         $msec_total += $delta;
         if ($delta > $msec_max) { $msec_max = $delta }
