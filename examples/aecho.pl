@@ -76,7 +76,8 @@ if ($datalen >= $stamplen) {
 
 sub usage {
     print "usage:\t", $0,
-            " [-bDq] [-I source address] [-i interval] [-c count] ( addr | nbpname )\n";
+            " [-bDq] [-I source address] [-i interval] \n\t\t",
+            "[-c count] [-s size] ( addr | nbpname )\n";
     exit(1);
 }
 
