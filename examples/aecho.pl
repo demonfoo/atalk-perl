@@ -87,7 +87,7 @@ sub finish {
 
 sub status {
     if ($sent) {
-        printf("\%d/\%d packets, \%d\%\% loss, min/avg/max = \%.3f/\%.3f/\%.3f ms\n",
+        printf(STDERR "\r\%d/\%d packets, \%d\%\% loss, min/avg/max = \%.3f/\%.3f/\%.3f ms\n",
                 $sent, $rcvd, ($sent - $rcvd) * 100 / $sent, $msec_min,
                 $msec_total / ($rcvd + $dups), $msec_max);
     }
