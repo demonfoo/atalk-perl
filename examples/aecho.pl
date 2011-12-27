@@ -110,7 +110,7 @@ sub finish {
 
 sub status {
     if ($sent) {
-        printf(STDERR "\r\%d/\%d packets, \%d\%\% loss\n",
+        printf(STDERR "\r\%d/\%d packets, \%d\%\% loss",
                 $sent, $rcvd, ($sent - $rcvd) * 100 / $sent);
         printf(STDERR ', min/avg/max = %.3f/%.3f/%.3f ms', $msec_min,
                 $msec_total / ($rcvd + $dups), $msec_max) if $timing;
