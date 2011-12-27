@@ -11,7 +11,8 @@ my $maxents;
 my $localaddr;
 
 sub usage {
-    print "Usage:\t", $0, " [ -A address ] [ -r responses ] [ obj:type\@zone ]\n";
+    print "Usage:\t", $0,
+            " [ -A address ] [ -r responses ] [ obj:type\@zone ]\n";
     exit(1);
 }
 
@@ -31,3 +32,5 @@ if (defined $host) {
 foreach my $tuple (NBPLookup($host, $type, $zone, $localaddr, $maxents)) {
     printf("\%31s:\%-34s \%s:\%u\n", @$tuple[3,4,0,1]);
 }
+
+# vim: ts=4 et ai
