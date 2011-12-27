@@ -147,7 +147,7 @@ while (1) {
     unless ($quiet) {
         printf('[%f] ', time()) if $print_stamp;
         printf('%d bytes from %s: aep_seq=%d', length($rbuf), $haddr, $seqno);
-        printf(', %.3f', $delta) if $timing;
+        printf(', %.3f msec', $delta) if $timing;
         print "\n";
     }
     if ($count && $seqno + 1 >= $count) { finish() }
