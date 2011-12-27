@@ -24,6 +24,8 @@ my $count       = 0;
 my $interval    = 1.0;
 my $print_stamp;
 my $quiet;
+my $timing;
+my $datalen = 32;
 my %sockparms   = ('Proto' => 'ddp');
 
 Getopt::Long::Configure('no_ignore_case');
@@ -32,10 +34,22 @@ GetOptions( 'c=i'   => \$count,
             'i=f'   => \$interval,
             'q'     => \$quiet,
             'D'     => \$print_stamp,
+            's=i'   => \$datalen,
             'b'     => sub { $sockparms{'Broadcast'} = 1 },
             'h'     => \&usage ) || usage();
 
 usage() unless scalar(@ARGV) == 1;
+
+if ($datalen < 0) {
+    print STDERR "Data size less than 0 is impossible\n";
+    exit(1);
+}
+
+if ($datalen + length(pack('x[C]x[C]x[L!]')) > DDP_MAXSZ) {
+    print STDERR "Data size impossibly large for DDP\n";
+    exit(1);
+}
+
 my ($target) = @ARGV;
 
 my $paddr = atalk_aton($target);
@@ -55,6 +69,11 @@ unless (defined $paddr) {
 my $sock = new IO::Socket::DDP(%sockparms) or die "Can't bind: $@";
 my $dest = pack_sockaddr_at($port, $paddr);
 
+my $stamplen = length(pack('x[L!]x[L!]'));
+if ($datalen >= $stamplen) {
+    $timing = 1;
+}
+
 sub usage {
     print "usage:\t", $0,
             " [-bDq] [-I source address] [-i interval] [-c count] ( addr | nbpname )\n";
@@ -64,8 +83,11 @@ sub usage {
 sub send_echo {
     # Declare $! as local so error codes in this context don't leak out.
     local $!;
-    my $msg = pack('CCLLL', DDPTYPE_AEP, AEPOP_REQUEST, $sent++,
-            gettimeofday());
+    my $trailer = "\0" x $datalen;
+    if ($timing) {
+        substr($trailer, 0, $stamplen, pack('L!L!', gettimeofday()));
+    }
+    my $msg = pack('CCL!a*', DDPTYPE_AEP, AEPOP_REQUEST, $sent++, $trailer);
     die "send() failed: $!" unless defined send($sock, $msg, 0, $dest);
     if ($count && $sent > $count) { finish() }
     $SIG{'ALRM'} = \&send_echo;
@@ -77,7 +99,7 @@ sub finish {
         printf("\%d packets sent, \%d packets received\%s, \%d\%\% packet loss\n",
              $sent, $rcvd, $dups ? sprintf(', +%u duplicates', $dups) : '',
              ($sent - $rcvd) * 100 / $sent);
-        if ($rcvd) {
+        if ($rcvd && $timing) {
             printf("round trip (msec) min/avg/max: \%.3f/\%.3f/\%.3f\n",
                 $msec_min, $msec_total / ($rcvd + $dups), $msec_max);
         }
@@ -87,9 +109,11 @@ sub finish {
 
 sub status {
     if ($sent) {
-        printf(STDERR "\r\%d/\%d packets, \%d\%\% loss, min/avg/max = \%.3f/\%.3f/\%.3f ms\n",
-                $sent, $rcvd, ($sent - $rcvd) * 100 / $sent, $msec_min,
-                $msec_total / ($rcvd + $dups), $msec_max);
+        printf(STDERR "\r\%d/\%d packets, \%d\%\% loss\n",
+                $sent, $rcvd, ($sent - $rcvd) * 100 / $sent);
+        printf(STDERR ', min/avg/max = %.3f/%.3f/%.3f ms', $msec_min,
+                $msec_total / ($rcvd + $dups), $msec_max) if $timing;
+        print STDERR "\n";
     }
     $SIG{'QUIT'} = \&status;
 }
@@ -108,18 +132,23 @@ while (1) {
         die "recv failed: $!";
     }
     if ($rcvd < $sent) { $rcvd++ } else { $dups++ }
-    my ($now_sec, $now_usec) = gettimeofday();
-    my ($ddptype, $aeptype, $seqno, $t_sec, $t_usec) =
-         unpack('CCLLL', $rbuf);
-    my $delta = ($now_sec - $t_sec) * 1000 + ($now_usec - $t_usec) / 1000;
-    $msec_total += $delta;
-    if ($delta > $msec_max) { $msec_max = $delta }
-    if ($delta < $msec_min || $msec_min == -1) { $msec_min = $delta }
+    my ($ddptype, $aeptype, $seqno, $trailer) =
+         unpack('CCL!a*', $rbuf);
+    my $delta;
+    if ($timing) {
+        my ($now_sec, $now_usec) = gettimeofday();
+        my ($t_sec, $t_usec);
+        $delta = ($now_sec - $t_sec) * 1000 + ($now_usec - $t_usec) / 1000;
+        $msec_total += $delta;
+        if ($delta > $msec_max) { $msec_max = $delta }
+        if ($delta < $msec_min || $msec_min == -1) { $msec_min = $delta }
+    }
     my $haddr = atalk_ntoa( (unpack_sockaddr_at($from))[1] );
     unless ($quiet) {
-        printf("[%f] ", time()) if $print_stamp;
-        printf("\%d bytes from \%s: aep_seq=\%d, \%.3f msec\n", length($rbuf),
-                $haddr, $seqno, $delta);
+        printf('[%f] ', time()) if $print_stamp;
+        printf('%d bytes from %s: aep_seq=%d', length($rbuf), $haddr, $seqno);
+        printf(', %.3f', $delta) if $timing;
+        print "\n";
     }
     if ($count && $seqno + 1 >= $count) { finish() }
 }
