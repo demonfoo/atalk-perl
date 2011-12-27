@@ -22,12 +22,14 @@ my ($msec_total, $msec_min, $msec_max, $sent, $rcvd, $dups) =
         (0, -1, -1, 0, 0, 0);
 my $count       = 0;
 my $interval    = 1.0;
+my $quiet;
 my %sockparms   = ('Proto' => 'ddp');
 
 Getopt::Long::Configure('no_ignore_case');
 GetOptions( 'c=i'   => \$count,
             'I=s'   => sub { $sockparms{'LocalAddr'} = $_[1] },
             'i=f'   => \$interval,
+            'q'     => \$quiet,
             'b'     => sub { $sockparms{'Broadcast'} = 1 },
             'h'     => \&usage ) || usage();
 
@@ -53,7 +55,7 @@ my $dest = pack_sockaddr_at($port, $paddr);
 
 sub usage {
     print "usage:\t", $0,
-            " [-I source address] [-i interval] [-c count] [-b] ( addr | nbpname )\n";
+            " [-I source address] [-i interval] [-c count] [-q] [-b] ( addr | nbpname )\n";
     exit(1);
 }
 
@@ -103,7 +105,7 @@ while (1) {
     if ($delta < $msec_min || $msec_min == -1) { $msec_min = $delta }
     my $haddr = atalk_ntoa( (unpack_sockaddr_at($from))[1] );
     printf("\%d bytes from \%s: aep_seq=\%d, \%.3f msec\n", length($rbuf),
-            $haddr, $seqno, $delta);
+            $haddr, $seqno, $delta) unless $quiet;
     if ($count && $seqno + 1 >= $count) { finish() }
 }
 
