@@ -7,7 +7,7 @@ use diagnostics;
 use IO::Socket::DDP;
 use Net::Atalk;
 use Net::Atalk::NBP;
-use Time::HiRes qw(gettimeofday setitimer ITIMER_REAL);
+use Time::HiRes qw(gettimeofday setitimer ITIMER_REAL time);
 use Errno qw(EINTR);
 use Getopt::Long;
 use constant AEPOP_REQUEST  => 1;
@@ -22,6 +22,7 @@ my ($msec_total, $msec_min, $msec_max, $sent, $rcvd, $dups) =
         (0, -1, -1, 0, 0, 0);
 my $count       = 0;
 my $interval    = 1.0;
+my $print_stamp;
 my $quiet;
 my %sockparms   = ('Proto' => 'ddp');
 
@@ -30,6 +31,7 @@ GetOptions( 'c=i'   => \$count,
             'I=s'   => sub { $sockparms{'LocalAddr'} = $_[1] },
             'i=f'   => \$interval,
             'q'     => \$quiet,
+            'D'     => \$print_stamp,
             'b'     => sub { $sockparms{'Broadcast'} = 1 },
             'h'     => \&usage ) || usage();
 
@@ -55,7 +57,7 @@ my $dest = pack_sockaddr_at($port, $paddr);
 
 sub usage {
     print "usage:\t", $0,
-            " [-I source address] [-i interval] [-c count] [-q] [-b] ( addr | nbpname )\n";
+            " [-bDq] [-I source address] [-i interval] [-c count] ( addr | nbpname )\n";
     exit(1);
 }
 
@@ -104,8 +106,11 @@ while (1) {
     if ($delta > $msec_max) { $msec_max = $delta }
     if ($delta < $msec_min || $msec_min == -1) { $msec_min = $delta }
     my $haddr = atalk_ntoa( (unpack_sockaddr_at($from))[1] );
-    printf("\%d bytes from \%s: aep_seq=\%d, \%.3f msec\n", length($rbuf),
-            $haddr, $seqno, $delta) unless $quiet;
+    unless ($quiet) {
+        printf("[%f] ", time()) if $print_stamp;
+        printf("\%d bytes from \%s: aep_seq=\%d, \%.3f msec\n", length($rbuf),
+                $haddr, $seqno, $delta);;
+    }
     if ($count && $seqno + 1 >= $count) { finish() }
 }
 
