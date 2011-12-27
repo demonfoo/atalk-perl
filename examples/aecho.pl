@@ -24,6 +24,7 @@ my $count       = 0;
 my $interval    = 1.0;
 my %sockparms   = ('Proto' => 'ddp');
 
+Getopt::Long::Configure('no_ignore_case');
 GetOptions( 'c=i'   => \$count,
             'I=s'   => sub { $sockparms{'LocalAddr'} = $_[1] },
             'i=f'   => \$interval,
