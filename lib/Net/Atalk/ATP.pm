@@ -140,7 +140,7 @@ our @EXPORT = qw(ATP_TREL_30SEC ATP_TREL_1MIN ATP_TREL_2MIN ATP_TREL_4MIN
 my $atp_header :shared;
 $atp_header = 'CCCna[4]a*';
 my @atp_header_fields :shared;
-@atp_header_fields = ('ddp_type', 'ctl', 'bmp_seq', 'tid', 'userbytes',
+@atp_header_fields = ('ddp_type', 'ctl', 'bmp_seq', 'txid', 'userbytes',
         'data');
 my %xo_timeouts :shared;
 %xo_timeouts = (
@@ -225,20 +225,20 @@ sub close { # {{{1
     $$self{'Dispatcher'}->join();
 } # }}}1
 
-sub sockaddr {
+sub sockaddr { # {{{1
     my ($self) = @_;
     return $$self{'Shared'}{'sockaddr'};
-}
+} # }}}1
 
-sub sockport {
+sub sockport { # {{{1
     my ($self) = @_;
     return $$self{'Shared'}{'sockport'};
-}
+} # }}}1
 
-sub sockdomain {
+sub sockdomain { # {{{1
     my ($self) = @_;
     return $$self{'Shared'}{'sockdomain'};
-}
+} # }}}1
 
 # This function is the body of the thread. Similar to DSI, this is a
 # hybrid-dispatcher arrangement - responses are sent directly from the
@@ -282,10 +282,9 @@ sub thread_core { # {{{1
 
 MAINLOOP:
     while ($$shared{'exit'} == 0) { # {{{2
-        # Okay, now we need to check existing outbound transactions for
-        # status, resends, cleanups, etc...
         $time = gettimeofday();
 
+        # Check for any timed callbacks.
         foreach $rec (@{$$shared{'TimedCBs'}}) {
             if (($$rec{'last_called'} + $$rec{'period'}) < $time) {
                 $cb = $$rec{'callback'};
@@ -293,6 +292,9 @@ MAINLOOP:
                 $$rec{'last_called'} = $time;
             }
         }
+
+        # Okay, now we need to check existing outbound transactions for
+        # status, resends, cleanups, etc...
         foreach $txid (keys %{$$shared{'TxCB_list'}}) { # {{{3
             $TxCB = $$shared{'TxCB_list'}{$txid};
             next if (($time - $$TxCB{'stamp'}) < $$TxCB{'tmout'});
@@ -308,10 +310,10 @@ MAINLOOP:
                 next;
             }
 
-            # Packet data needs to be resent; sequence mask will
-            # be updated in-place elsewhere, so just need to send
-            # again, decrement the retry counter, and update
-            # the start timer.
+            # Packet data needs to be resent. Sequence data will be updated
+            # in the structure. We need to decrement the retry counter,
+            # copy the updated sequence bitmap back into the packet data,
+            # resend the packet, and update the retry counter.
 
             # -1 is special, it means "just keep trying forever"
             if ($$TxCB{'ntries'} != -1) { $$TxCB{'ntries'}-- }
@@ -352,7 +354,7 @@ MAINLOOP:
 
         # Let's see what kind of message we've been sent.
         $msgtype = $msgdata{'ctl'} & ATP_CTL_FNCODE;
-        $txid = $msgdata{'tid'};
+        $txid = $msgdata{'txid'};
 
         # Get the requester source address and port and jam everything
         # together to make a transaction key, so separate requesters
@@ -363,8 +365,8 @@ MAINLOOP:
 
         if ($msgtype == ATP_TReq) { # {{{3
             # Remote is asking to initiate a transaction with us.
-            $is_xo = $msgdata{'ctl'} & ATP_CTL_XOBIT;
-            $xo_tmout = $msgdata{'ctl'} & ATP_CTL_TREL_TMOUT;
+            $is_xo      = $msgdata{'ctl'} & ATP_CTL_XOBIT;
+            $xo_tmout   = $msgdata{'ctl'} & ATP_CTL_TREL_TMOUT;
 
             # Ignore a duplicate transaction request.
             next MAINLOOP if exists $$shared{'RqCB_list'}{$txkey};
@@ -372,9 +374,9 @@ MAINLOOP:
             # If there's an XO completion handler in place, then resend
             # whatever packets the peer indicates it wants.
             if (exists $$shared{'RspCB_list'}{$txkey}) { # {{{4
-                $RspCB = $$shared{'RspCB_list'}{$txkey};
-                $RqCB = $$RspCB{'RqCB'};
-                $pktdata = $$RspCB{'RespData'};
+                $RspCB      = $$shared{'RspCB_list'}{$txkey};
+                $RqCB       = $$RspCB{'RqCB'};
+                $pktdata    = $$RspCB{'RespData'};
 
                 foreach my $seq (0 .. $#$pktdata) {
                     # Check if the sequence mask bit corresponding to
@@ -461,10 +463,10 @@ MAINLOOP:
 
             # Get the transaction block, and grab a few bits of info
             # out of it to keep them at hand.
-            $TxCB = $$shared{'TxCB_list'}{$txid};
-            $is_eom = $msgdata{'ctl'} & ATP_CTL_EOMBIT;
-            $wants_sts = $msgdata{'ctl'} & ATP_CTL_STSBIT;
-            $seqno = $msgdata{'bmp_seq'};
+            $TxCB       = $$shared{'TxCB_list'}{$txid};
+            $is_eom     = $msgdata{'ctl'} & ATP_CTL_EOMBIT;
+            $wants_sts  = $msgdata{'ctl'} & ATP_CTL_STSBIT;
+            $seqno      = $msgdata{'bmp_seq'};
 
             # If the server says this packet is the end of the transaction
             # set, mask off any higher bits in the sequence bitmap.
