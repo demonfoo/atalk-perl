@@ -58,7 +58,7 @@ sub atalk_aton {
 
     my($net, $node) = $addr =~ /^(\d{1,5})\.(\d{1,3})$/;
     return unless defined $net && defined $node;
-    return pack('nC', $net, $node);
+    return pack('nCx', $net, $node);
 }
 
 use constant ATADDR_ANY         => atalk_aton('0.0');
@@ -72,7 +72,7 @@ Unpack a packed AppleTalk address back to string form.
 sub atalk_ntoa {
     my($paddr) = @_;
 
-    return sprintf('%d.%d', unpack('nC', $paddr));
+    return sprintf('%d.%d', unpack('nCx', $paddr));
 }
 
 =item sockaddr_at
@@ -107,7 +107,7 @@ sub pack_sockaddr_at {
     if ($^O ne 'linux') { unshift(@arglist, 16); }
     # On *BSD, the first byte of sockaddr structs is a byte to indicate
     # the size of the struct. Linux doesn't do this.
-    return pack($^O eq 'linux' ? 'SCxa[3]x[9]' : 'CCCxa[3]x[9]', @arglist);
+    return pack($^O eq 'linux' ? 'SCxa[4]x[8]' : 'CCCxa[4]x[8]', @arglist);
 }
 
 =item unpack_sockaddr_at
@@ -119,7 +119,7 @@ packed AppleTalk host address as an array.
 sub unpack_sockaddr_at {
     my($psock) = @_;
 
-    return unpack('x[2]Cxa[3]x[9]', $psock);
+    return unpack('x[2]Cxa[4]x[8]', $psock);
 }
 =back
 
