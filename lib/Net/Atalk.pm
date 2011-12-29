@@ -72,7 +72,7 @@ Unpack a packed AppleTalk address back to string form.
 sub atalk_ntoa {
     my($paddr) = @_;
 
-    return sprintf('%d.%d', unpack('nCx', $paddr));
+    return sprintf('%d.%d', unpack('nC', $paddr));
 }
 
 =item sockaddr_at
