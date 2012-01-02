@@ -252,7 +252,7 @@ sub SPOpenSession { # {{{1
         $filter = &share([]);
         # We have to pass the fully qualified subroutine name because we can't
         # pass subroutine refs from thread to thread.
-        @$filter = ( __PACKAGE__ . '::_TickleFilter', $$self{'svcport'},
+        @$filter = ( __PACKAGE__ . '::_TickleFilter', $$self{'sessport'},
                 $lt_ref );
         $$self{'atpsess'}->AddTransactionFilter($filter);
         my $cb = &share([]);
