@@ -31,11 +31,11 @@ structure format for AppleTalk socket operations.
 =over
 
 =cut
-use constant DDPTYPE_RTMPRD     => 1;
+use constant DDPTYPE_RTMPRD     => 1;	# RTMP response/data
 use constant DDPTYPE_NBP        => 2;
 use constant DDPTYPE_ATP        => 3;
 use constant DDPTYPE_AEP        => 4;
-use constant DDPTYPE_RTMPR      => 5;
+use constant DDPTYPE_RTMPR      => 5;	# RTMP request
 use constant DDPTYPE_ZIP        => 6;
 use constant DDPTYPE_ADSP       => 7;
 
