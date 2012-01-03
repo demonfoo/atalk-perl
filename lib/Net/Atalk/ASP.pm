@@ -10,22 +10,6 @@ use threads::shared;    # for share
 use strict;
 use warnings;
 
-=head1 NAME
-
-Net::Atalk::ASP - Object interface for AppleTalk Session Protocol
-
-=head1 SYNOPSIS
-
-    use Net::Atalk::ASP;
-
-=head1 DESCRIPTION
-
-C<Net::Atalk::ASP> provides an object-based interface to interacting with
-AppleTalk Session Protocol-based services, specifically AFP. It builds on
-the L<Net::Atalk::ATP> interface to implement the command semantics.
-
-=cut
-
 use constant SP_VERSION             => 0x0100;
 
 use constant OP_SP_CLOSESESS        => 1;
@@ -39,16 +23,6 @@ use constant OP_SP_ATTENTION        => 8;
 
 use constant SP_TIMEOUT             => 120;
 
-=head1 CONSTRUCTOR
-
-=over
-
-=item new (HOST, PORT)
-
-Creates a C<Net::Atalk::ASP> object. Requires an AppleTalk host address
-and DDP port number.
-
-=cut
 sub new { # {{{1
     my ($class, $host, $port) = @_;
 
@@ -61,9 +35,7 @@ sub new { # {{{1
 
     return $obj;
 } # }}}1
-=back
 
-=cut
 sub _TickleFilter { # {{{1
     my ($realport, $lt_ref, $RqCB) = @_;
     my ($txtype) = unpack('C', $$RqCB{'userbytes'});
@@ -76,14 +48,14 @@ sub _TickleFilter { # {{{1
     return;
 } # }}}1
 
-sub _TickleCheck {
+sub _TickleCheck { # {{{1
     my ($lt_ref, $time, $shared) = @_;
 
     if ($$lt_ref + SP_TIMEOUT < $time) {
         print "no tickle in more than timeout period, setting exit flag\n";
         $$shared{'exit'} = 1;
     }
-}
+} # }}}1
 
 sub _AttnFilter { # {{{1
     my ($sid, $attnq_r, $realport, $RqCB) = @_;
@@ -109,15 +81,6 @@ sub _CloseFilter { # {{{1
     return;
 } # }}}1
 
-=head2 METHODS
-
-=over
-
-=item close ()
-
-Discontinue an active ASP session.
-
-=cut
 sub close { # {{{1
     my ($self) = @_;
 
@@ -125,27 +88,6 @@ sub close { # {{{1
 } # }}}1
 
 # Apparently this just returns these fixed values always...
-=item SPGetParms (RESP_R)
-
-The C<SPGetParms> call retrieves the maximum values of the command block
-size and the quantum size.
-
-RESP_R must be a scalar ref which will contain a hash ref with the size
-bound information. The hash will contain the following:
-
-=over
-
-=item MaxCmdSize
-
-The maximum size of a command block.
-
-=item QuantumSize
-
-The maximum size for a command reply or a write.
-
-=back
-
-=cut
 sub SPGetParms { # {{{1
     my ($self, $resp_r) = @_;
 
@@ -157,15 +99,6 @@ sub SPGetParms { # {{{1
     return kASPNoError;
 } # }}}1
 
-=item SPGetStatus (RESP_R)
-
-The C<SPGetStatus> call is used by a workstation ASP client to obtain
-status information for a particular server.
-
-RESP_R must be a scalar ref which will contain a hash ref with the
-parsed structure data from the SPGetStatus call.
-
-=cut
 sub SPGetStatus { # {{{1
     my ($self, $resp_r) = @_;
 
@@ -191,16 +124,6 @@ sub SPGetStatus { # {{{1
     return kASPNoError;
 } # }}}1
 
-=item SPOpenSession
-
-The C<SPOpenSession> call is issued by an ASP client after obtaining the
-internet address of the SLS (server listening socket) through an NBPLookup
-call. If a session is successfully opened, then a session reference
-number is returned and stored in the session object, to be used for
-all subsequent calls in this session. If a session cannot be opened,
-an appropriate SPError value is returned.
-
-=cut
 sub SPOpenSession { # {{{1
     my ($self) = @_;
 
@@ -262,15 +185,6 @@ sub SPOpenSession { # {{{1
     return $errno;
 } # }}}1
 
-=item SPCloseSession
-
-The C<SPCloseSession> call can be issued at any time by the ASP client to
-close a session previously opened through an C<SPOpenSession> call. As a
-result of the call, the session reference number is invalidated and
-cannot be used for any further calls. In addition, all pending activity
-on the session is immediately canceled.
-
-=cut
 sub SPCloseSession { # {{{1
     my ($self) = @_;
 
@@ -290,20 +204,6 @@ sub SPCloseSession { # {{{1
     return kASPNoError;
 } # }}}1
 
-=item SPCommand (MESSAGE, RESP_R)
-
-Once a session has been opened, the workstation end client can send a
-command to the server end by issuing an C<SPCommand> call to ASP. A
-command block of maximum size (L<MaxCmdSize>) can be sent with the
-command. If the length of MESSAGE is greater than the maximum allowable
-size, the call returns an error of kASPSizeErr; in this case, no effort
-is made to send anything to the server end.
-
-MESSAGE contains the binary data for the outgoing request. RESP_R must
-be a scalar ref that will contain the reassembled response data, if any,
-received from the server in response to the request sent.
-
-=cut
 sub SPCommand { # {{{1
     my ($self, $message, $resp_r) = @_;
 
@@ -337,31 +237,6 @@ sub SPCommand { # {{{1
     return $errno;
 } # }}}1
 
-=item SPWrite (MESSAGE, DATA_R, D_LEN, RESP_R)
-
-The C<SPWrite> call is made by the ASP client in order to write a block
-of data to the server end of the session. The call first delivers the
-command block (no larger than L<MaxCmdSize>) to the server end client
-of the ASP session and, as previously described, the server end can
-then transfer the write data or return an error (delivered in the
-result code field).
-
-The actual amount of data sent will be less than or equal to the
-length of the data chunk provided and will never be larger than
-L<QuantumSize>. The amount of write data actually transferred is
-returned in the response block.
-
-In response to an C<SPWrite>, the server end returns two quantities:
-a 4-byte command result code and a variable-length command reply
-that is returned in the reply buffer. Note that this reply can be
-no larger than L<QuantumSize>.
-
-MESSAGE contains the binary data for the outgoing request. DATA_R must
-be a scalar ref to the binary data to be written to the server. RESP_R
-must be a scalar ref that will contain the reassembled response data
-received from the server in response to the request sent.
-
-=cut
 sub SPWrite { # {{{1
     my ($self, $message, $data_r, $d_len, $resp_r) = @_;
 
@@ -449,25 +324,5 @@ sub SPTickle { # {{{1
     );
 } # }}}1
 
-=back
-
-=head1 REFERENCES
-
-The AppleTalk Session Protocol implementation contained herein is based
-on the protocol description as provided by Apple, in the book "Inside
-AppleTalk", chapter 11. "Inside AppleTalk" is available freely via the
-Internet in PDF form, at:
-
-L<http://developer.apple.com/MacOs/opentransport/docs/dev/Inside_AppleTalk.pdf>
-
-=head1 SEE ALSO
-
-C<Net::Atalk::ATP>
-
-=head1 AUTHOR
-
-Derrik Pates <demon@devrandom.net>
-
-=cut
 1;
 # vim: ts=4 fdm=marker

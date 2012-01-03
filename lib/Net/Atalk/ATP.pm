@@ -35,23 +35,6 @@ use Thread::Semaphore;
 use Exporter qw(import);
 use Scalar::Util qw(dualvar);
 
-=head1 NAME
-
-Net::Atalk::ATP - Object interface for AppleTalk Transaction Protocol 
-
-=head1 SYNOPSIS
-
-    use Net::Atalk::ATP;
-
-=head1 DESCRIPTION
-
-C<Net::Atalk::ATP> provides an object-based interface to interacting with
-AppleTalk Transaction Protocol-based services. It builds on the
-L<IO::Socket::DDP> interface to construct transactional semantics
-over the datagram socket interface of DDP.
-
-=cut
-
 # ATP message types.
 use constant ATP_TReq           => (0x1 << 6);  # Transaction request
 use constant ATP_TResp          => (0x2 << 6);  # Transaction response
@@ -67,69 +50,17 @@ use constant ATP_CTL_STSBIT     => 0x08;    # send transaction status; upon
                                             # TReq packet
 use constant ATP_CTL_TREL_TMOUT => 0x07;
 
-=head1 CONSTANTS
-
-=over
-
-=cut
 # TRel timeout periods for XO (exactly-once) transactions. Ignored by
 # AppleTalk Phase1 implementations; I don't think this applies to anything
 # except really, really old stuff.
-=item ATP_TREL_30SEC
-
-For XO (exactly-once) transactions, this constant is used to tell the
-server to maintain transactional state for 30 seconds after initial
-fulfillment of the request.
-
-If the server implements AppleTalk Phase1, this is always the case for
-XO transactions.
-
-=cut
 use constant ATP_TREL_30SEC     => 0x00;
-=item ATP_TREL_1MIN
-
-For XO (exactly-once) transactions, this constant is used to tell the
-server to maintain transactional state for 1 minute after initial
-fulfillment of the request.
-
-=cut
 use constant ATP_TREL_1MIN      => 0x01;
-=item ATP_TREL_2MIN
-
-For XO (exactly-once) transactions, this constant is used to tell the
-server to maintain transactional state for 2 minutes after initial
-fulfillment of the request.
-
-=cut
 use constant ATP_TREL_2MIN      => 0x02;
-=item ATP_TREL_4MIN
-
-For XO (exactly-once) transactions, this constant is used to tell the
-server to maintain transactional state for 4 minutes after initial
-fulfillment of the request.
-
-=cut
 use constant ATP_TREL_4MIN      => 0x03;
-=item ATP_TREL_8MIN
-
-For XO (exactly-once) transactions, this constant is used to tell the
-server to maintain transactional state for 8 minutes after initial
-fulfillment of the request.
-
-=cut
 use constant ATP_TREL_8MIN      => 0x04;
 
 # The maximum length of the ATP message body.
-=item ATP_MAXLEN
-
-The maximum length of a single ATP message payload. Transaction responses
-may consist of up to 8 individual response packets.
-
-=cut
 use constant ATP_MAXLEN         => 578;
-=back
-
-=cut
 
 # symbols to export
 our @EXPORT = qw(ATP_TREL_30SEC ATP_TREL_1MIN ATP_TREL_2MIN ATP_TREL_4MIN
@@ -151,22 +82,6 @@ my %xo_timeouts :shared;
                  &ATP_TREL_8MIN     => 480,
                );
 
-=head1 CONSTRUCTOR
-
-=over
-
-=item new ([ARGS])
-
-Creates a C<Net::Atalk::ATP> object. C<new> optionally takes arguments;
-these are presented as key/value pairs, and passed through to the
-L<IO::Socket::DDP> constructor.
-
-The C<PeerAddr>, C<PeerHost> and C<PeerPort> parameters can be provided,
-but many ATP protocols involve sending transactions to multiple remote
-endpoints, so it's often easier to specify the target endpoint in the
-C<SendTransaction> call.
-
-=cut
 sub new { # {{{1
     my ($class, %sockopts) = @_;
 
@@ -205,20 +120,6 @@ sub new { # {{{1
     }
     return($$shared{'running'} == 1 ? $obj : undef);
 } # }}}1
-=back
-
-=head2 METHODS
-
-=over
-
-=item close ()
-
-Discontinue an active ATP session. Any pending transactions will be
-aborted, and their callers will be notified of their failure. The
-dispatcher thread will be told to shut down, and the current process
-will block until it has ended.
-
-=cut
 sub close { # {{{1
     my ($self) = @_;
     $$self{'Shared'}{'exit'} = 1;
@@ -285,13 +186,13 @@ MAINLOOP:
         $time = gettimeofday();
 
         # Check for any timed callbacks.
-        foreach $rec (@{$$shared{'TimedCBs'}}) {
+        foreach $rec (@{$$shared{'TimedCBs'}}) { # {{{3
             if (($$rec{'last_called'} + $$rec{'period'}) < $time) {
                 $cb = $$rec{'callback'};
                 &{$$cb[0]}(@$cb[1 .. $#$cb], $time, $shared);
                 $$rec{'last_called'} = $time;
             }
-        }
+        } # }}}3
 
         # Okay, now we need to check existing outbound transactions for
         # status, resends, cleanups, etc...
@@ -540,78 +441,6 @@ MAINLOOP:
     CORE::close($conn);
 } # }}}1
 
-=item SendTransaction (ARGS)
-
-Initiate a new transaction with a DDP peer socket. Actual reception of
-responses will be managed by the dispatcher thread in the background.
-
-Upon success, returns a C<Thread::Semaphore> object, which can be used
-to block pending completion of the sent request.
-
-Options are to be passed as a hash, in name/value form. The available
-options are as follows:
-
-=over
-
-=item ExactlyOnce
-
-This option should be passed if the transaction should be XO
-(exactly-once). Commonly used for filesystem operations, and other
-transactions which should be guaranteed to only execute one time.
-
-The value of this option should be one of the C<ATP_TREL_*> constants
-noted above, depending upon the desired transaction time window.
-
-=item PeerAddr
-
-A packed sockaddr_at representing the target host and port for the
-transaction. Optional. Should be specified if not explicitly indicated
-in the constructor.
-
-=item UserBytes
-
-Up to 4 bytes to be inserted into the "user bytes" field of the request
-packet. Must be specified, as all requests depend at minimum on this
-data to indicate to the server request type and certain other
-parameter data.
-
-=item Data
-
-Up to ATP_MAXLEN bytes of data, to be included in the request packet.
-Optional. Many requests do not use the data field.
-
-=item ResponseLength
-
-The number of packets of (up to) ATP_MAXLEN bytes expected in the
-response from the peer. Must be no less than 1, and no more than 8.
-Required.
-
-=item ResponseStore
-
-A scalar reference which will be used to contain an array reference
-with the user bytes and data fields of the response packets. Optional,
-but generally desirable.
-
-=item StatusStore
-
-A scalar reference which will be used to contain the success or
-failure indicator for the transaction. Optional, but generally desirable.
-
-=item Timeout
-
-An integer indicating the number of seconds to wait before either
-resending the request, or considering it expired. Required.
-
-=item NumTries
-
-An integer indicating the number of times to resend a request if
-a response has not been received, or between individual packets in
-the response. -1 means keep trying as long as the session exists.
-Optional. Default is -1.
-
-=back
-
-=cut
 sub SendTransaction { # {{{1
     my ($self, %options) = @_;
 
@@ -690,20 +519,6 @@ sub SendTransaction { # {{{1
     return $$TxCB{'sem'};
 } # }}}1
 
-=item GetTransaction ([DO_BLOCK], [FILTER])
-
-Get a transaction from the peer. If DO_BLOCK is true, this call will
-block until a new transaction is received. Otherwise, if a transaction
-has been queued, its request control block will be returned, or
-C<undef> if none are currently queued. Will also return C<undef> if
-the connection is closed while blocking.
-
-FILTER is an optional subroutine ref to be used to match specific
-transactions in the queue. When it is called, it will be passed a
-request block as its only argument. If the request block matches its
-criteria, it should return a true value, or a false value otherwise.
-
-=cut
 sub GetTransaction { # {{{1
     my ($self, $do_block, $filter) = @_;
 
@@ -736,19 +551,6 @@ sub GetTransaction { # {{{1
     return;
 } # }}}1
 
-=item RespondTransaction (RQCB, RESP_R)
-
-Used to send a response to a pending transaction request returned by the
-C<GetTransaction> method above.
-
-RQCB is the request block returned by C<GetTransaction>.
-
-RESP_R is an array reference containing hash references, each of which
-must contain C<data> and C<userbytes> elements. There must be at least
-one, and no more than 8, such elements in the array. These are the
-serialized binary packet data to be sent to the transaction requester.
-
-=cut
 sub RespondTransaction { # {{{1
     my ($self, $RqCB, $resp_r) = @_;
     
@@ -808,31 +610,13 @@ sub RespondTransaction { # {{{1
 # The idea here is to be able to pass a subroutine that looks at the
 # transaction block and, if it's known, handle the transaction without
 # passing it on to transaction queue at all.
-=item AddTransactionFilter (FILTER)
-
-Used to install a filter for incoming transactions to be processed
-automatically upon reception, short-circuiting the normal transaction
-queue.
-
-FILTER is an array reference, containing as its first argument the
-fully qualified (with complete package name prefixed) handler
-function name, with any additional desired arguments included as
-subsequent elements. The additional arguments will be passed to the
-function upon calling, along with the request control block as the
-last argument. If the function can handle the request, it should
-return an array reference containing an ordered list of hash
-references, with C<userbytes> and C<data> elements for each, containing
-the response data; if it cannot handle the request, it should return
-C<undef>.
-
-=cut
 sub AddTransactionFilter { # {{{1
     my ($self, $filter) = @_;
 
     push(@{$$self{'Shared'}{'RqFilters'}}, $filter);
 } # }}}1
 
-sub AddPeriodicCallback {
+sub AddPeriodicCallback { # {{{1
     my ($self, $period, $callback) = @_;
 
     my $cb_rec = &share({});
@@ -842,28 +626,7 @@ sub AddPeriodicCallback {
         'last_called'   => 0,
     );
     push(@{$$self{'Shared'}{'TimedCBs'}}, $cb_rec);
-}
-
-=back
-
-=head1 REFERENCES
-
-The AppleTalk Transaction Protocol implementation contained herein is based
-on the protocol description as provided by Apple, in the book "Inside
-AppleTalk", chapter 9. "Inside AppleTalk" is available freely via the
-Internet in PDF form, at:
-
-L<http://developer.apple.com/MacOs/opentransport/docs/dev/Inside_AppleTalk.pdf>
-
-=head1 SEE ALSO
-
-C<IO::Socket::DDP>, C<Net::Atalk>
-
-=head1 AUTHOR
-
-Derrik Pates <demon@devrandom.net>
-
-=cut
+} # }}}1
 
 1;
 # vim: ts=4 fdm=marker

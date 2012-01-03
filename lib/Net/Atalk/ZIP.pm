@@ -11,25 +11,6 @@ use IO::Poll qw(POLLIN);
 use POSIX qw(ETIMEDOUT);
 use Exporter qw(import);
 
-=head1 NAME
-
-Net::Atalk::ZIP - AppleTalk Zone Information Protocol operations
-
-=head1 SYNOPSIS
-
-    use Net::Atalk::ZIP;
-
-=head1 DESCRIPTION
-
-C<Net::Atalk::ZIP> provides functions for getting information about
-AppleTalk zones, including getting the local zone name, enumerating
-zones known to AppleTalk routers, and net number range information
-for known zones.
-
-=over
-
-=cut
-
 use constant ZIP_Query_Req          => 1;
 use constant ZIP_Query_Resp         => 2;
 use constant ZIP_Query_RespExt      => 8;
@@ -46,12 +27,6 @@ use constant ZIP_GNI_OnlyOneZone    => 0x20;
 our @EXPORT = qw(ZIPQuery ZIPGetZoneList ZIPGetLocalZones ZIPGetMyZone
         ZIPGetNetInfo);
 
-=item ZIPQuery (NETNUM, ...)
-
-Requests mapping of AppleTalk network numbers to their corresponding
-ZIP zone names. Multiple zones may be resolved in a single lookup.
-
-=cut
 sub ZIPQuery {
     my (@netnums) = @_;
 
@@ -91,13 +66,6 @@ sub ZIPQuery {
     return { %namedata };
 }
 
-=item ZIPGetZoneList (FROMADDR, STARTINDEX)
-
-Get a list of known zones, starting at the given offset. Optionally specify
-the local address to issue the queries from; C<undef> otherwise. Upon
-success, returns an array reference containing the zone list.
-
-=cut
 sub ZIPGetZoneList {
     my ($FromAddr, $StartIndex) = @_;
     my %sockopts;
@@ -132,14 +100,6 @@ sub ZIPGetZoneList {
     return;
 }
 
-=item ZIPGetLocalZones (FROMADDR, STARTINDEX)
-
-Get a list of known zones for the local network segment, starting at
-the given offset. Optionally specify the local address to issue the
-queries from; C<undef> otherwise. Upon success, returns an array
-reference containing the list of local zones.
-
-=cut
 sub ZIPGetLocalZones {
     my ($FromAddr, $StartIndex) = @_;
     my %sockopts;
@@ -174,13 +134,6 @@ sub ZIPGetLocalZones {
     return;
 }
 
-=item ZIPGetMyZone (FROMADDR)
-
-Get the zone the local machine is associated with. Optionally specify
-the local address to issue the queries from; C<undef> otherwise. Upon
-success, returns the name of the current host's assigned zone.
-
-=cut
 sub ZIPGetMyZone {
     my ($FromAddr) = @_;
     my %sockopts;
@@ -216,12 +169,6 @@ sub ZIPGetMyZone {
     return;
 }
 
-=item ZIPGetNetInfo (ZONENAME) 
-
-Inquire about network information for a specific AppleTalk zone. Returns a
-hash ref, containing network number range and other information.
-
-=cut
 sub ZIPGetNetInfo {
     my ($zonename) = @_;
 
@@ -261,24 +208,5 @@ sub ZIPGetNetInfo {
     return { %zoneinfo };
 }
 
-=back
-
-=head1 REFERENCES
-
-The Zone Information Protocol implementation contained herein is based
-on the protocol description as provided by Apple, in the book "Inside
-AppleTalk", chapter 8. "Inside AppleTalk" is available freely via the
-Internet in PDF form, at:
-
-L<http://developer.apple.com/MacOs/opentransport/docs/dev/Inside_AppleTalk.pdf>
-
-Also, netatalk's libatalk and getzones tool were used as source references
-for development (see L<http://netatalk.sourceforge.net/>).
-
-=head1 SEE ALSO
-
-L<Net::Atalk>, L<IO::Socket::DDP>
-
-=cut
 1;
 # vim: ts=4 ai fdm=marker

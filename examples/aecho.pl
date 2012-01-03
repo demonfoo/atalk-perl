@@ -25,7 +25,7 @@ my $interval    = 1.0;
 my $print_stamp;
 my $quiet;
 my $timing;
-my $datalen = 32;
+my $datalen     = 32;
 my %sockparms   = ('Proto' => 'ddp');
 
 Getopt::Long::Configure('no_ignore_case');
@@ -119,9 +119,9 @@ sub status {
     $SIG{'QUIT'} = \&status;
 }
 
-$SIG{'INT'} = \&finish;
-$SIG{'ALRM'} = \&send_echo;
-$SIG{'QUIT'} = \&status;
+$SIG{'INT'}     = \&finish;
+$SIG{'ALRM'}    = \&send_echo;
+$SIG{'QUIT'}    = \&status;
 
 setitimer(ITIMER_REAL, $interval, $interval);
 
