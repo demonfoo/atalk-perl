@@ -1,0 +1,49 @@
+=head1 NAME
+
+Net::Atalk - Convenience functions for AppleTalk socket operations
+
+=head1 SYNOPSIS
+
+    use Net::Atalk;
+
+=head1 DESCRIPTION
+
+C<Net::Atalk> provides various common convenience functions for
+operating on AppleTalk (DDP) sockets. Specifically, it contains
+functions similar to the C<Socket> package for packing AppleTalk
+host addresses, and packing addresses and ports into C<struct sockaddr_at>
+structure format for AppleTalk socket operations.
+
+=over
+
+=item atalk_aton
+
+Pack a string form AppleTalk host address.
+
+=item atalk_ntoa
+
+Unpack a packed AppleTalk address back to string form.
+
+=item sockaddr_at
+
+If given a single argument, the argument is assumed to be a packed
+C<struct sockaddr_at>, and is unpacked into the constituent port
+number and packed AppleTalk host address.
+
+If multiple arguments are given, the arguments are assumed to be a
+port number and a packed AppleTalk host address, and a packed
+C<struct sockaddr_at> is returned containing them.
+
+=item pack_sockaddr_at
+
+Accepts a DDP port number and a packed AppleTalk host address. Returns
+a packed C<struct sockaddr_at> structure.
+
+=item unpack_sockaddr_at
+
+Accepts a packed C<struct sockaddr_at>. Returns the DDP port number and
+packed AppleTalk host address as an array.
+
+=back
+
+=cut
