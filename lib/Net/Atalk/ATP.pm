@@ -318,12 +318,6 @@ MAINLOOP:
                 foreach my $seq (0 .. $#$rv) {
                     $item = $$rv[$seq];
                     $ctl_byte = ATP_TResp;
-                    # It would appear we don't need to set the XO bits
-                    # in the response.
-                    #if ($$RqCB{'is_xo'}) {
-                    #    $ctl_byte |= ATP_CTL_XOBIT |
-                    #            $$RqCB{'xo_tmout_bits'};
-                    #}
                     # last packet in provided set, so tell the
                     # requester that this is end of message...
                     if ($seq == $#$rv) { $ctl_byte |= ATP_CTL_EOMBIT }
@@ -398,11 +392,7 @@ MAINLOOP:
                 next MAINLOOP if !$$TxCB{'is_xo'};
 
                 # Don't need to preserve the XO bits.
-                #$$TxCB{'ctl_byte'} &= ~ATP_CTL_FNCODE & 0xFF;
-                #$$TxCB{'ctl_byte'} |= ATP_TRel;
-                $$TxCB{'ctl_byte'} = ATP_TRel;
-                substr($$TxCB{'msg'}, 1, 1,
-                        pack('C', $$TxCB{'ctl_byte'}));
+                substr($$TxCB{'msg'}, 1, 1, pack('C', ATP_TRel));
                 $$shared{'conn_sem'}->down();
                 send($conn, $$TxCB{'msg'}, 0, $$TxCB{'target'});
                 $$shared{'conn_sem'}->up();
@@ -497,7 +487,6 @@ sub SendTransaction { # {{{1
                  'msg'      => $msg,
                  'ntries'   => $ntries == -1 ? $ntries : ($ntries - 1),
                  'response' => &share([]),
-                 'ctl_byte' => $ctl_byte,
                  'seq_bmp'  => $seq_bmp,
                  'is_xo'    => exists $options{'ExactlyOnce'},
                  'tmout'    => $options{'Timeout'},
@@ -578,10 +567,6 @@ sub RespondTransaction { # {{{1
         die('$resp_r element ' . $seq . ' was not a hash ref')
                 unless ref($$resp_r[$seq]) eq 'HASH';
         my $ctl_byte = ATP_TResp;
-        # XO bits are only needed in the request.
-        #if ($$RqCB{'is_xo'}) {
-        #    $ctl_byte |= ATP_CTL_XOBIT | $$RqCB{'xo_tmout_bits'};
-        #}
         # last packet in provided set, so tell the requester that this is
         # end of message...
         if ($seq == $#$resp_r) { $ctl_byte |= ATP_CTL_EOMBIT }
