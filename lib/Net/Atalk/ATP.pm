@@ -120,6 +120,7 @@ sub new { # {{{1
     }
     return($$shared{'running'} == 1 ? $obj : undef);
 } # }}}1
+
 sub close { # {{{1
     my ($self) = @_;
     $$self{'Shared'}{'exit'} = 1;
@@ -317,10 +318,12 @@ MAINLOOP:
                 foreach my $seq (0 .. $#$rv) {
                     $item = $$rv[$seq];
                     $ctl_byte = ATP_TResp;
-                    if ($$RqCB{'is_xo'}) {
-                        $ctl_byte |= ATP_CTL_XOBIT |
-                                $$RqCB{'xo_tmout_bits'};
-                    }
+                    # It would appear we don't need to set the XO bits
+                    # in the response.
+                    #if ($$RqCB{'is_xo'}) {
+                    #    $ctl_byte |= ATP_CTL_XOBIT |
+                    #            $$RqCB{'xo_tmout_bits'};
+                    #}
                     # last packet in provided set, so tell the
                     # requester that this is end of message...
                     if ($seq == $#$rv) { $ctl_byte |= ATP_CTL_EOMBIT }
@@ -394,8 +397,10 @@ MAINLOOP:
                 # If it was an XO transaction, we should send a TRel here.
                 next MAINLOOP if !$$TxCB{'is_xo'};
 
-                $$TxCB{'ctl_byte'} &= ~ATP_CTL_FNCODE & 0xFF;
-                $$TxCB{'ctl_byte'} |= ATP_TRel;
+                # Don't need to preserve the XO bits.
+                #$$TxCB{'ctl_byte'} &= ~ATP_CTL_FNCODE & 0xFF;
+                #$$TxCB{'ctl_byte'} |= ATP_TRel;
+                $$TxCB{'ctl_byte'} = ATP_TRel;
                 substr($$TxCB{'msg'}, 1, 1,
                         pack('C', $$TxCB{'ctl_byte'}));
                 $$shared{'conn_sem'}->down();
@@ -573,9 +578,10 @@ sub RespondTransaction { # {{{1
         die('$resp_r element ' . $seq . ' was not a hash ref')
                 unless ref($$resp_r[$seq]) eq 'HASH';
         my $ctl_byte = ATP_TResp;
-        if ($$RqCB{'is_xo'}) {
-            $ctl_byte |= ATP_CTL_XOBIT | $$RqCB{'xo_tmout_bits'};
-        }
+        # XO bits are only needed in the request.
+        #if ($$RqCB{'is_xo'}) {
+        #    $ctl_byte |= ATP_CTL_XOBIT | $$RqCB{'xo_tmout_bits'};
+        #}
         # last packet in provided set, so tell the requester that this is
         # end of message...
         if ($seq == $#$resp_r) { $ctl_byte |= ATP_CTL_EOMBIT }
