@@ -255,7 +255,7 @@ sub SPWrite { # {{{1
     my $sem = $$self{'atpsess'}->SendTransaction(
         'UserBytes'         => $ub,
         'Data'              => $message,
-        'ResponseLength'    => 8,
+        'ResponseLength'    => 1,
         'ResponseStore'     => \$rdata,
         'StatusStore'       => \$success,
         'Timeout'           => 5,
@@ -263,6 +263,16 @@ sub SPWrite { # {{{1
         'ExactlyOnce'       => ATP_TREL_30SEC
     );
     return $sem unless ref($sem);
+
+    if (defined $success) { # Could possibly have already failed...
+        my $rcode;
+        if ($success == 1) {
+            $rcode = unpack('l>', $rdata->[0]->[0]);
+        } else {
+            $rcode = kASPNoServers;
+        }
+        return $rcode;
+    }
 
     # Try getting an SPWriteContinue transaction request from the server
     my $RqCB = $$self{'atpsess'}->GetTransaction(1, sub {
@@ -302,7 +312,7 @@ sub SPWrite { # {{{1
     $$resp_r = join('', map { $$_[1]; } @$rdata);
     # user bytes from the first response packet are the only ones that
     # are relevant...
-    my ($errno) = unpack('N', $$rdata[0][0]);
+    my ($errno) = unpack('l>', $$rdata[0][0]);
     $errno = ($errno & 0x80000000) ? -((~$errno & 0xFFFFFFFF) + 1) : $errno;
 
     return $errno;
@@ -325,4 +335,4 @@ sub SPTickle { # {{{1
 } # }}}1
 
 1;
-# vim: ts=4 fdm=marker
+# vim: ts=4 ai et fdm=marker

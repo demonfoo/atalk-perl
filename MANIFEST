@@ -3,11 +3,17 @@ MANIFEST
 README
 Todo
 lib/IO/Socket/DDP.pm
+lib/IO/Socket/DDP.pod
 lib/Net/Atalk.pm
+lib/Net/Atalk.pod
 lib/Net/Atalk/ATP.pm
+lib/Net/Atalk/ATP.pod
 lib/Net/Atalk/ASP.pm
+lib/Net/Atalk/ASP.pod
 lib/Net/Atalk/ZIP.pm
+lib/Net/Atalk/ZIP.pod
 lib/Net/Atalk/NBP.pm
+lib/Net/Atalk/NBP.pod
 examples/aecho.pl
 examples/getzones.pl
 examples/nbplkup.pl
