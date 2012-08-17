@@ -46,4 +46,21 @@ packed AppleTalk host address as an array.
 
 =back
 
+=head1 REFERENCES
+
+The AppleTalk Session Protocol implementation contained herein is based
+on the protocol description as provided by Apple, in the book "Inside
+AppleTalk", chapter 11. "Inside AppleTalk" is available freely via the
+Internet in PDF form, at:
+
+L<http://developer.apple.com/MacOs/opentransport/docs/dev/Inside_AppleTalk.pdf>
+
+=head1 SEE ALSO
+
+C<Net::Atalk::ATP>
+
+=head1 AUTHOR
+
+Derrik Pates <demon@now.ai>
+
 =cut
