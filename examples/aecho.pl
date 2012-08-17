@@ -27,6 +27,7 @@ my $quiet;
 my $timing;
 my $datalen     = 32;
 my %sockparms   = ('Proto' => 'ddp');
+my $audible;
 
 Getopt::Long::Configure('no_ignore_case');
 GetOptions( 'c=i'   => \$count,
@@ -36,6 +37,7 @@ GetOptions( 'c=i'   => \$count,
             'D'     => \$print_stamp,
             's=i'   => \$datalen,
             'b'     => sub { $sockparms{'Broadcast'} = 1 },
+            'a'     => \&audible,
             'h'     => \&usage ) || usage();
 
 usage() unless scalar(@ARGV) == 1;
@@ -76,7 +78,7 @@ if ($datalen >= $stamplen) {
 
 sub usage {
     print "usage:\t", $0,
-            " [-bDq] [-I source address] [-i interval] \n\t\t",
+            " [-abDq] [-I source address] [-i interval] \n\t\t",
             "[-c count] [-s size] ( addr | nbpname )\n";
     exit(1);
 }
@@ -149,6 +151,7 @@ while (1) {
         printf('[%f] ', time()) if $print_stamp;
         printf('%d bytes from %s: aep_seq=%d', length($rbuf), $haddr, $seqno);
         printf(', %.3f msec', $delta) if $timing;
+        print "\a" if $audible;
         print "\n";
     }
     if ($count && $seqno + 1 >= $count) { finish() }
