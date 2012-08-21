@@ -37,7 +37,7 @@ GetOptions( 'c=i'   => \$count,
             'D'     => \$print_stamp,
             's=i'   => \$datalen,
             'b'     => sub { $sockparms{'Broadcast'} = 1 },
-            'a'     => \&audible,
+            'a'     => \$audible,
             'h'     => \&usage ) || usage();
 
 usage() unless scalar(@ARGV) == 1;
