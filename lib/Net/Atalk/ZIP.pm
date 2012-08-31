@@ -37,7 +37,7 @@ sub ZIPQuery {
                       'Broadcast'   => 1 );
     my $sock = new IO::Socket::DDP(%sockparms) || die $!;
     die("Can't get local socket address, possibly atalk stack out of order")
-            unless defined $sock->sockhost();
+            if not defined $sock->sockhost();
 
     my $dest = pack_sockaddr_at($port, ATADDR_BCAST);
     my $msg = pack('CCC/n*', DDPTYPE_ZIP, ZIP_Query_Req, @netnums);
@@ -46,20 +46,20 @@ sub ZIPQuery {
     my $zonemap = {};
     my $poll = new IO::Poll();
     $poll->mask($sock, POLLIN);
-    return unless $poll->poll(2);
+    return if not $poll->poll(2);
     my $rbuf;
     my $from = recv($sock, $rbuf, DDP_MAXSZ, 0);
-    return unless defined $from;
+    return if not defined $from;
     my ($ddptype, $ziptype) = unpack('CC', $rbuf);
-    return unless $ddptype == DDPTYPE_ZIP;
-    return unless $ziptype == ZIP_Query_Resp ||
-            $ziptype == ZIP_Query_RespExt;
+    return if $ddptype != DDPTYPE_ZIP;
+    return if $ziptype != ZIP_Query_Resp &&
+            $ziptype != ZIP_Query_RespExt;
     my @data = unpack('xxC/(nC/a*)', $rbuf);
     my %namedata;
     while (scalar(@data)) {
         my $zonenum = shift(@data);
         my $zonename = shift(@data);
-        unless (exists $namedata{$zonenum}) { $namedata{$zonenum} = [] }
+        if (!exists $namedata{$zonenum}) { $namedata{$zonenum} = [] }
         push(@{$namedata{$zonenum}}, $zonename);
     }
 
@@ -71,7 +71,7 @@ sub ZIPGetZoneList {
     my %sockopts;
     if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
     my $conn = new Net::Atalk::ATP(%sockopts);
-    return unless defined $conn;
+    return if not defined $conn;
 
     my $port = getservbyname('zip', 'ddp') || 6;
     my $dest = pack_sockaddr_at($port, ATADDR_ANY);
@@ -92,8 +92,8 @@ sub ZIPGetZoneList {
     $sem->down();
     $conn->close();
     if ($success) {
-        my ($LastFlag, $count) = unpack('Cxn', $$rdata[0][0]);
-        my @zonenames = unpack('C/a*' x $count, $$rdata[0][1]);
+        my ($LastFlag, $count) = unpack('Cxn', $rdata->[0][0]);
+        my @zonenames = unpack('C/a*' x $count, $rdata->[0][1]);
         return wantarray() ? ([@zonenames], $LastFlag) : [@zonenames];
     }
     $! = ETIMEDOUT;
@@ -105,7 +105,7 @@ sub ZIPGetLocalZones {
     my %sockopts;
     if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
     my $conn = new Net::Atalk::ATP(%sockopts);
-    return unless defined $conn;
+    return if not defined $conn;
 
     my $port = getservbyname('zip', 'ddp') || 6;
     my $dest = pack_sockaddr_at($port, ATADDR_ANY);
@@ -126,8 +126,8 @@ sub ZIPGetLocalZones {
     $sem->down();
     $conn->close();
     if ($success) {
-        my ($LastFlag, $count) = unpack('Cxn', $$rdata[0][0]);
-        my @zonenames = unpack('C/a*' x $count, $$rdata[0][1]);
+        my ($LastFlag, $count) = unpack('Cxn', $rdata->[0][0]);
+        my @zonenames = unpack('C/a*' x $count, $rdata->[0][1]);
         return wantarray() ? ([@zonenames], $LastFlag) : [@zonenames];
     }
     $! = ETIMEDOUT;
@@ -139,7 +139,7 @@ sub ZIPGetMyZone {
     my %sockopts;
     if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
     my $conn = new Net::Atalk::ATP(%sockopts);
-    return unless defined $conn;
+    return if not defined $conn;
 
     my $port = getservbyname('zip', 'ddp') || 6;
     my $dest = pack_sockaddr_at($port, ATADDR_ANY);
@@ -160,9 +160,9 @@ sub ZIPGetMyZone {
     $sem->down();
     $conn->close();
     if ($success) {
-        my ($count) = unpack('xxn', $$rdata[0][0]);
+        my ($count) = unpack('xxn', $rdata->[0][0]);
         die() if $count != 1;
-        my ($zonename) = unpack('C/a*', $$rdata[0][1]);
+        my ($zonename) = unpack('C/a*', $rdata->[0][1]);
         return $zonename;
     }
     $! = ETIMEDOUT;
@@ -179,7 +179,7 @@ sub ZIPGetNetInfo {
                       'Broadcast'   => 1 );
     my $sock = new IO::Socket::DDP(%sockparms) || die $!;
     die("Can't get local socket address, possibly atalk stack out of order")
-            unless defined $sock->sockhost();
+            if not defined $sock->sockhost();
 
     my $dest = pack_sockaddr_at($port, ATADDR_BCAST);
     my $msg = pack('CCx[5]C/a*', DDPTYPE_ZIP, ZIP_GetNetInfo_Req, $zonename);
@@ -187,13 +187,13 @@ sub ZIPGetNetInfo {
 
     my $poll = new IO::Poll();
     $poll->mask($sock, POLLIN);
-    return unless $poll->poll(2);
+    return if not $poll->poll(2);
     my $rbuf;
     my $from = recv($sock, $rbuf, DDP_MAXSZ, 0);
-    return unless defined $from;
+    return if not defined $from;
     my ($ddptype, $ziptype) = unpack('CC', $rbuf);
-    return unless $ddptype == DDPTYPE_ZIP;
-    return unless $ziptype == ZIP_GetNetInfo_Resp;
+    return if $ddptype != DDPTYPE_ZIP;
+    return if $ziptype != ZIP_GetNetInfo_Resp;
     my (%zoneinfo, $extra, $flags);
     ($flags, @zoneinfo{'NetNum_start', 'NetNum_end', 'zonename', 'mcastaddr'},
             $extra) = unpack('xxCnnC/a*C/a*a*', $rbuf);

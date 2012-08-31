@@ -41,7 +41,7 @@ sub UnpackPacket {
     my ($packet) = @_;
 
     my ($pkttype, $fn_cnt, $ID, $tupledata) = unpack('CCCa*', $packet);
-    return unless $pkttype == DDPTYPE_NBP;
+    return if $pkttype != DDPTYPE_NBP;
     my $Function = ($fn_cnt >> 4) & 0x0F;
     my $tuplecount = $fn_cnt & 0x0F;
     return($Function, $ID, UnpackTuples($tuplecount, $tupledata));
@@ -71,13 +71,13 @@ sub NBPLookup {
     if (defined $FromAddr) { $sockparms{'LocalAddr'} = $FromAddr }
     my $sock = new IO::Socket::DDP(%sockparms) || die $!;
     die("Can't get local socket address, possibly atalk stack out of order")
-            unless defined $sock->sockhost();
+            if not defined $sock->sockhost();
 
     # If the lookup properties are undef (or empty strings), assume
     # wildcards were intended.
-    unless (defined $Obj && $Obj ne '') { $Obj = '=' }
-    unless (defined $Type && $Type ne '') { $Type = '=' }
-    unless (defined $Zone && $Zone ne '') { $Zone = '*' }
+    if (!defined $Obj || $Obj eq '') { $Obj = '=' }
+    if (!defined $Type || $Type eq '') { $Type = '=' }
+    if (!defined $Zone || $Zone eq '') { $Zone = '*' }
 
     # Construct a lookup packet with a single tuple, requesting the given
     # entity name, service type and zone.
@@ -108,21 +108,21 @@ RETRY:
             my ($s_sec, $s_usec) = gettimeofday();
             # Poll the socket for traffic, and retry the whole damn thing
             # if we don't see anything at all.
-            next RETRY unless $poll->poll($timeout);
+            next RETRY if not $poll->poll($timeout);
             my ($e_sec, $e_usec) = gettimeofday();
             # Compute how long it took us to poll the socket.
             $timeout -= ($e_sec - $s_sec) + (($e_usec - $s_usec) / 1000000);
 
             # Read in the packet on the socket.
             my $rbuf;
-            return unless defined recv($sock, $rbuf, DDP_MAXSZ, 0);
+            return if not defined recv($sock, $rbuf, DDP_MAXSZ, 0);
 
             # Unpack the NBP packet.
             my ($fn, $r_id, @tuples) = UnpackPacket($rbuf);
 
             # If the packet wasn't a lookup-reply packet (or an NBP packet,
             # if $fn is undef), just ignore it.
-            next unless defined $fn and $fn == NBP_LkUp_Reply;
+            next if !defined $fn or $fn != NBP_LkUp_Reply;
 
             # Do some duplicate checking, then add the tuples to the set
             # to be returned to the caller.

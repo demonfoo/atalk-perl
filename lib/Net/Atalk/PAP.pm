@@ -71,7 +71,7 @@ sub PAPStatus {
     return 1;
 }
 
-sub PAPOpenConn {
+sub PAPOpen {
     my ($self, $waittime, $resp_r) = @_;
 
     die('$resp_r must be a scalar ref')
@@ -144,7 +144,7 @@ sub PAPSendData {
     }
 }
 
-sub PAPCloseConn {
+sub PAPClose {
     my ($self) = @_;
 
     die('Response socket does not exist - PAP session not open')
