@@ -27,19 +27,19 @@ sub new { # {{{1
     my ($class, $host, $port) = @_;
 
     my $obj = bless {}, $class;
-    $$obj{'atpsess'} = new Net::Atalk::ATP();
-    return unless defined $$obj{'atpsess'};
-    $$obj{'host'} = $host;
-    $$obj{'svcport'} = $port;
-    $$obj{'last_tickle'} = undef;
+    $obj->{'atpsess'}       = new Net::Atalk::ATP();
+    return unless defined $obj->{'atpsess'};
+    $obj->{'host'}          = $host;
+    $obj->{'svcport'}       = $port;
+    $obj->{'last_tickle'}   = undef;
 
     return $obj;
 } # }}}1
 
 sub _TickleFilter { # {{{1
     my ($realport, $lt_ref, $RqCB) = @_;
-    my ($txtype) = unpack('C', $$RqCB{'userbytes'});
-    my ($portno, $paddr) = unpack_sockaddr_at($$RqCB{'sockaddr'});
+    my ($txtype)            = unpack('C', $RqCB->{'userbytes'});
+    my ($portno, $paddr)    = unpack_sockaddr_at($RqCB->{'sockaddr'});
 
     if ($txtype == OP_SP_TICKLE && $portno == $realport) {
         $$lt_ref = time();
@@ -53,14 +53,14 @@ sub _TickleCheck { # {{{1
 
     if ($$lt_ref + SP_TIMEOUT < $time) {
         print "no tickle in more than timeout period, setting exit flag\n";
-        $$shared{'exit'} = 1;
+        $shared->{'exit'} = 1;
     }
 } # }}}1
 
 sub _AttnFilter { # {{{1
     my ($sid, $attnq_r, $realport, $RqCB) = @_;
-    my ($txtype, $sessid, $attncode) = unpack('CCn', $$RqCB{'userbytes'});
-    my ($portno, $paddr) = unpack_sockaddr_at($$RqCB{'sockaddr'});
+    my ($txtype, $sessid, $attncode) = unpack('CCn', $RqCB->{'userbytes'});
+    my ($portno, $paddr)             = unpack_sockaddr_at($RqCB->{'sockaddr'});
 
     if ($txtype == OP_SP_ATTENTION && $sessid == $sid && $realport == $portno) {
         push(@$attnq_r, $attncode);
@@ -71,11 +71,11 @@ sub _AttnFilter { # {{{1
 
 sub _CloseFilter { # {{{1
     my ($sid, $shared, $realport, $RqCB) = @_;
-    my ($txtype, $sessid) = unpack('CCx[2]', $$RqCB{'userbytes'});
-    my ($portno, $paddr) = unpack_sockaddr_at($$RqCB{'sockaddr'});
+    my ($txtype, $sessid)   = unpack('CCx[2]', $RqCB->{'userbytes'});
+    my ($portno, $paddr)    = unpack_sockaddr_at($RqCB->{'sockaddr'});
 
     if ($txtype == OP_SP_CLOSESESS && $sessid == $sid && $realport == $portno) {
-        $$shared{'exit'} = 1;
+        $shared->{'exit'} = 1;
         return [ { 'userbytes' => pack('x[4]'), 'data' => ''} ];
     }
     return;
@@ -84,7 +84,7 @@ sub _CloseFilter { # {{{1
 sub close { # {{{1
     my ($self) = @_;
 
-    $$self{'atpsess'}->close();
+    $self->{'atpsess'}->close();
 } # }}}1
 
 # Apparently this just returns these fixed values always...
@@ -107,8 +107,8 @@ sub SPGetStatus { # {{{1
 
     my ($rdata, $success);
     my $msg = pack('Cx[3]', OP_SP_GETSTATUS);
-    my $sa = pack_sockaddr_at($$self{'svcport'} , atalk_aton($$self{'host'}));
-    my $sem = $$self{'atpsess'}->SendTransaction(
+    my $sa  = pack_sockaddr_at($self->{'svcport'}, atalk_aton($self->{'host'}));
+    my $sem = $self->{'atpsess'}->SendTransaction(
         'UserBytes'         => $msg,
         'ResponseLength'    => 1,
         'ResponseStore'     => \$rdata,
@@ -120,18 +120,18 @@ sub SPGetStatus { # {{{1
     return $sem unless ref($sem);
     $sem->down();
     unless ($success) { return kASPNoServers; }
-    $$resp_r = $$rdata[0][1];
+    $$resp_r = $rdata->[0][1];
     return kASPNoError;
 } # }}}1
 
 sub SPOpenSession { # {{{1
     my ($self) = @_;
 
-    my $wss = $$self{'atpsess'}->sockport();
+    my $wss = $self->{'atpsess'}->sockport();
     my $msg = pack('CCn', OP_SP_OPENSESS, $wss, SP_VERSION);
-    my $sa = pack_sockaddr_at($$self{'svcport'} , atalk_aton($$self{'host'}));
+    my $sa  = pack_sockaddr_at($self->{'svcport'}, atalk_aton($self->{'host'}));
     my ($rdata, $success);
-    my $sem = $$self{'atpsess'}->SendTransaction(
+    my $sem = $self->{'atpsess'}->SendTransaction(
         'UserBytes'         => $msg,
         'ResponseLength'    => 1,
         'ResponseStore'     => \$rdata,
@@ -144,10 +144,10 @@ sub SPOpenSession { # {{{1
     return $sem unless ref($sem);
     $sem->down();
     unless ($success) { return kASPNoServers; }
-    my ($srv_sockno, $sessionid, $errno) = unpack('CCn', $$rdata[0][0]);
-    @$self{'sessport', 'sessionid'} = ($srv_sockno, $sessionid);
-    $$self{'seqno'} = 0;
-    $errno = ($errno & 0x8000) ? -((~$errno & 0xFFFF) + 1) : $errno;
+    my ($srv_sockno, $sessionid, $errno)    = unpack('CCn', $rdata->[0][0]);
+    @$self{'sessport', 'sessionid'}         = ($srv_sockno, $sessionid);
+    $self->{'seqno'}                        = 0;
+    $errno                                  = unpack('s', pack('S', $errno));
     if ($errno == kASPNoError) { # {{{2
         # This will cause the client code to send an SPTickle, and resend
         # it every 30 seconds, forever. The server never actually sends
@@ -157,30 +157,33 @@ sub SPOpenSession { # {{{1
         $self->SPTickle(30, -1);
 
         # Handle incoming Attention requests.
-        $$self{'attnq'} = &share([]);
-        my $filter = &share([]);
-        @$filter = ( __PACKAGE__ . '::_AttnFilter', $$self{'sessionid'},
-                $$self{'attnq'}, $$self{'sessport'} );
-        $$self{'atpsess'}->AddTransactionFilter($filter);
+        $self->{'attnq'}    = &share([]);
+        my $filter          = &share([]);
+        @$filter            = ( __PACKAGE__ . '::_AttnFilter',
+                                $self->{'sessionid'}, $self->{'attnq'},
+                                $self->{'sessport'} );
+        $self->{'atpsess'}->AddTransactionFilter($filter);
         # Handle CloseSession requests from the server.
-        $filter = &share([]);
-        @$filter = ( __PACKAGE__ . '::_CloseFilter', $$self{'sessionid'},
-                $$self{'atpsess'}{'Shared'}, $$self{'sessport'});
-        $$self{'atpsess'}->AddTransactionFilter($filter);
+        $filter             = &share([]);
+        @$filter            = ( __PACKAGE__ . '::_CloseFilter',
+                                $self->{'sessionid'},
+                                $self->{'atpsess'}{'Shared'},
+                                $self->{'sessport'});
+        $self->{'atpsess'}->AddTransactionFilter($filter);
 
-        my $lt_ref = \$$self{'last_tickle'};
+        my $lt_ref          = \$self->{'last_tickle'};
         share($lt_ref);
-        $$lt_ref = time();
+        $$lt_ref            = time();
 
-        $filter = &share([]);
+        $filter             = &share([]);
         # We have to pass the fully qualified subroutine name because we can't
         # pass subroutine refs from thread to thread.
-        @$filter = ( __PACKAGE__ . '::_TickleFilter', $$self{'sessport'},
-                $lt_ref );
-        $$self{'atpsess'}->AddTransactionFilter($filter);
-        my $cb = &share([]);
-        @$cb = ( __PACKAGE__ . '::_TickleCheck', $lt_ref );
-        $$self{'atpsess'}->AddPeriodicCallback(5, $cb);
+        @$filter            = ( __PACKAGE__ . '::_TickleFilter',
+                                $self->{'sessport'}, $lt_ref );
+        $self->{'atpsess'}->AddTransactionFilter($filter);
+        my $cb              = &share([]);
+        @$cb                = ( __PACKAGE__ . '::_TickleCheck', $lt_ref );
+        $self->{'atpsess'}->AddPeriodicCallback(5, $cb);
     } # }}}2
     return $errno;
 } # }}}1
@@ -188,10 +191,10 @@ sub SPOpenSession { # {{{1
 sub SPCloseSession { # {{{1
     my ($self) = @_;
 
-    my $msg = pack('CCx[2]', OP_SP_CLOSESESS, $$self{'sessionid'});
-    my $sa = pack_sockaddr_at($$self{'sessport'} , atalk_aton($$self{'host'}));
+    my $msg = pack('CCx[2]', OP_SP_CLOSESESS, $self->{'sessionid'});
+    my $sa = pack_sockaddr_at($self->{'sessport'} , atalk_aton($self->{'host'}));
     my ($rdata, $success);
-    my $sem = $$self{'atpsess'}->SendTransaction(
+    my $sem = $self->{'atpsess'}->SendTransaction(
         'UserBytes'         => $msg,
         'ResponseLength'    => 1,
         'ResponseStore'     => \$rdata,
@@ -200,7 +203,7 @@ sub SPCloseSession { # {{{1
         'NumTries'          => 1,
         'PeerAddr'          => $sa,
     );
-    delete $$self{'sessionid'};
+    delete $self->{'sessionid'};
     return kASPNoError;
 } # }}}1
 
@@ -209,13 +212,13 @@ sub SPCommand { # {{{1
 
     $resp_r = defined($resp_r) ? $resp_r : *foo{SCALAR};
 
-    my $seqno = $$self{'seqno'}++ % (2 ** 16);
+    my $seqno = $self->{'seqno'}++ % (2 ** 16);
     # this will take an ATP_MSGLEN sized chunk of the message data and
     # send it to the server, to be processed as part of the request.
-    my $ub = pack('CCn', OP_SP_COMMAND, $$self{'sessionid'}, $seqno);
-    my $sa = pack_sockaddr_at($$self{'sessport'} , atalk_aton($$self{'host'}));
+    my $ub = pack('CCn', OP_SP_COMMAND, $self->{'sessionid'}, $seqno);
+    my $sa = pack_sockaddr_at($self->{'sessport'} , atalk_aton($self->{'host'}));
     my ($rdata, $success);
-    my $sem = $$self{'atpsess'}->SendTransaction(
+    my $sem = $self->{'atpsess'}->SendTransaction(
         'UserBytes'         => $ub,
         'Data'              => $message,
         'ResponseLength'    => 8,
@@ -229,10 +232,10 @@ sub SPCommand { # {{{1
     $sem->down();
     unless ($success) { return kASPNoServers; }
     # string the response bodies back together
-    $$resp_r = join('', map { $$_[1]; } @$rdata);
+    $$resp_r = join('', map { $_->[1]; } @$rdata);
     # user bytes from the first response packet are the only ones that
     # are relevant...
-    my ($errno) = unpack('N', $$rdata[0][0]);
+    my ($errno) = unpack('N', $rdata->[0][0]);
     $errno = ($errno & 0x80000000) ? -((~$errno & 0xFFFFFFFF) + 1) : $errno;
     return $errno;
 } # }}}1
@@ -246,13 +249,13 @@ sub SPWrite { # {{{1
             unless ref($data_r) eq 'SCALAR' or ref($data_r) eq 'REF';
     $d_len ||= length($$data_r);
 
-    my $seqno = $$self{'seqno'}++ % (2 ** 16);
+    my $seqno = $self->{'seqno'}++ % (2 ** 16);
     # this will take an ATP_MSGLEN sized chunk of the message data and
     # send it to the server, to be processed as part of the request.
-    my $ub = pack('CCn', OP_SP_WRITE, $$self{'sessionid'}, $seqno);
-    my $sa = pack_sockaddr_at($$self{'sessport'} , atalk_aton($$self{'host'}));
+    my $ub = pack('CCn', OP_SP_WRITE, $self->{'sessionid'}, $seqno);
+    my $sa = pack_sockaddr_at($self->{'sessport'} , atalk_aton($self->{'host'}));
     my ($rdata, $success);
-    my $sem = $$self{'atpsess'}->SendTransaction(
+    my $sem = $self->{'atpsess'}->SendTransaction(
         'UserBytes'         => $ub,
         'Data'              => $message,
         'ResponseLength'    => 1,
@@ -275,15 +278,15 @@ sub SPWrite { # {{{1
     }
 
     # Try getting an SPWriteContinue transaction request from the server
-    my $RqCB = $$self{'atpsess'}->GetTransaction(1, sub {
+    my $RqCB = $self->{'atpsess'}->GetTransaction(1, sub {
         my ($txtype, $sessid, $pseq) = unpack('CCn', $_[0]{'userbytes'});
         my ($portno, $paddr) = unpack_sockaddr_at($_[0]{'sockaddr'});
 
         return($txtype == OP_SP_WRITECONTINUE &&
-                $sessid == $$self{'sessionid'} && $seqno == $pseq &&
-                $portno == $$self{'sessport'});
+                $sessid == $self->{'sessionid'} && $seqno == $pseq &&
+                $portno == $self->{'sessport'});
     } );
-    my $bufsize = unpack('n', $$RqCB{'data'});
+    my $bufsize = unpack('n', $RqCB->{'data'});
 
     my $resp = &share([]);
 
@@ -305,14 +308,14 @@ sub SPWrite { # {{{1
         $totalsend += $sendsize;
     } # }}}2
 
-    $$self{'atpsess'}->RespondTransaction($RqCB, $resp);
+    $self->{'atpsess'}->RespondTransaction($RqCB, $resp);
 
     $sem->down();
     # string the response bodies back together
-    $$resp_r = join('', map { $$_[1]; } @$rdata);
+    $$resp_r = join('', map { $_->[1]; } @$rdata);
     # user bytes from the first response packet are the only ones that
     # are relevant...
-    my ($errno) = unpack('l>', $$rdata[0][0]);
+    my ($errno) = unpack('l>', $rdata->[0][0]);
     $errno = ($errno & 0x80000000) ? -((~$errno & 0xFFFFFFFF) + 1) : $errno;
 
     return $errno;
@@ -323,9 +326,9 @@ sub SPWrite { # {{{1
 sub SPTickle { # {{{1
     my ($self, $interval, $ntries) = @_;
 
-    my $msg = pack('CCx[2]', OP_SP_TICKLE, $$self{'sessionid'});
-    my $sa = pack_sockaddr_at($$self{'svcport'} , atalk_aton($$self{'host'}));
-    my $sem = $$self{'atpsess'}->SendTransaction(
+    my $msg = pack('CCx[2]', OP_SP_TICKLE, $self->{'sessionid'});
+    my $sa = pack_sockaddr_at($self->{'svcport'} , atalk_aton($self->{'host'}));
+    my $sem = $self->{'atpsess'}->SendTransaction(
         'UserBytes'         => $msg,
         'ResponseLength'    => 1,
         'Timeout'           => $interval,
