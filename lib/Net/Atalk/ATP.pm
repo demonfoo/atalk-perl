@@ -156,7 +156,7 @@ sub thread_core { # {{{1
                          'Type'         => SOCK_DGRAM,
                          %sockopts );
     my $conn = new IO::Socket::DDP(%connect_args);
-    unless ($conn && $conn->sockaddr()) {
+    if (!$conn || !$conn->sockaddr()) {
         $shared->{'running'}    = -1;
         $shared->{'error'}      = $!;
         $shared->{'errno'}      = int($!);
@@ -240,19 +240,19 @@ MAINLOOP:
 
         # Check the socket for incoming packets. If there's nothing, just
         # loop again.
-        next MAINLOOP unless $poll->poll(0.5);
+        next MAINLOOP if not $poll->poll(0.5);
 
         # We've got something. Read in a potential packet. We know it's
         # never going to be larger than DDP_MAXSZ.
         $shared->{'conn_sem'}->down();
         $from = recv($conn, $msg, DDP_MAXSZ, 0);
         $shared->{'conn_sem'}->up();
-        next MAINLOOP unless defined $from;
+        next MAINLOOP if not defined $from;
 
         # Unpack the packet into its constituent fields, and quietly
         # move on if its DDP type field is wrong.
         @msgdata{@atp_header_fields} = unpack($atp_header, $msg);
-        next MAINLOOP unless $msgdata{'ddp_type'} == DDPTYPE_ATP;
+        next MAINLOOP if $msgdata{'ddp_type'} != DDPTYPE_ATP;
 
         # Let's see what kind of message we've been sent.
         $msgtype = $msgdata{'ctl'} & ATP_CTL_FNCODE;
@@ -283,7 +283,7 @@ MAINLOOP:
                 foreach my $seq (0 .. $#$pktdata) {
                     # Check if the sequence mask bit corresponding to
                     # the sequence number is set.
-                    next unless $RqCB->{'seq_bmp'} & (1 << $seq);
+                    next if not $RqCB->{'seq_bmp'} & (1 << $seq);
 
                     $shared->{'conn_sem'}->down();
                     send($conn, $pktdata->[$seq], 0, $RqCB->{'sockaddr'});
@@ -325,7 +325,7 @@ MAINLOOP:
                             $seq, $txid, @$item{'userbytes', 'data'});
                     $pktdata->[$seq] = $msg;
 
-                    next unless $RqCB->{'seq_bmp'} & (1 << $seq);
+                    next if not $RqCB->{'seq_bmp'} & (1 << $seq);
 
                     # Okay, let's try registering the RspCB just
                     # before the last packet posts to the server...
@@ -357,7 +357,7 @@ MAINLOOP:
             # Ignore a transaction response to a transaction that we don't
             # know, either because we didn't initiate it, or because we
             # tried it enough times and gave up.
-            next MAINLOOP unless exists $shared->{'TxCB_list'}{$txid};
+            next MAINLOOP if not exists $shared->{'TxCB_list'}{$txid};
 
             # Get the transaction block, and grab a few bits of info
             # out of it to keep them at hand.
@@ -372,7 +372,7 @@ MAINLOOP:
 
             # If the sequence bit for this packet is already cleared,
             # just quietly move on.
-            next MAINLOOP unless $TxCB->{'seq_bmp'} & (1 << $seqno);
+            next MAINLOOP if not $TxCB->{'seq_bmp'} & (1 << $seqno);
 
             # Put data into the array of stored payloads.
             $TxCB->{'response'}[$seqno] = &share([]);
@@ -402,8 +402,8 @@ MAINLOOP:
             # If the server wants an STS, or the sequence number is
             # high enough that it's not going up further but there are
             # still packets we need, then resend the request packet.
-            next MAINLOOP unless $wants_sts or ($TxCB->{'seq_bmp'} and
-                    !($TxCB->{'seq_bmp'} >> $seqno));
+            next MAINLOOP if !$wants_sts and (!$TxCB->{'seq_bmp'} or
+                    ($TxCB->{'seq_bmp'} >> $seqno));
 
             # Update packet data with new sequence bitmap.
             substr($TxCB->{'msg'}, 2, 1, pack('C', $TxCB->{'seq_bmp'}));
@@ -440,19 +440,19 @@ sub SendTransaction { # {{{1
     my ($self, %options) = @_;
 
     die('UserBytes must be provided')
-            unless exists $options{'UserBytes'};
+            if not exists $options{'UserBytes'};
     $options{'Data'} ||= '';
     die('ResponseLength must be provided')
-            unless exists $options{'ResponseLength'};
+            if not exists $options{'ResponseLength'};
     $options{'ResponseStore'} ||= *foo{SCALAR};
     die('ResponseStore must be provided and be a scalar ref')
-            unless ref($options{'ResponseStore'}) eq 'SCALAR' or
-                 ref($options{'ResponseStore'}) eq 'REF';
+            if ref($options{'ResponseStore'}) ne 'SCALAR' and
+                 ref($options{'ResponseStore'}) ne 'REF';
     $options{'StatusStore'} ||= *bar{SCALAR};
     die('StatusStore must be provided and be a scalar ref')
-            unless ref($options{'StatusStore'}) eq 'SCALAR' or
-                 ref($options{'StatusStore'}) eq 'REF';
-    die('Timeout must be provided') unless exists $options{'Timeout'};
+            if ref($options{'StatusStore'}) ne 'SCALAR' and
+                 ref($options{'StatusStore'}) ne 'REF';
+    die('Timeout must be provided') if not exists $options{'Timeout'};
     $options{'NumTries'} ||= -1;
     $options{'PeerAddr'} ||= undef;
 
@@ -460,7 +460,7 @@ sub SendTransaction { # {{{1
     return kASPSizeErr if length($options{'Data'}) > ATP_MAXLEN;
     return if $options{'ResponseLength'} > 8;
     return if length($options{'UserBytes'}) > 4;
-    return kASPSessClosed unless $self->{'Shared'}{'running'} == 1;
+    return kASPSessClosed if $self->{'Shared'}{'running'} != 1;
 
     # Set up the outgoing transaction request packet.
     my $ctl_byte = ATP_TReq;
@@ -548,7 +548,7 @@ sub GetTransaction { # {{{1
 sub RespondTransaction { # {{{1
     my ($self, $RqCB, $resp_r) = @_;
     
-    die('$resp_r must be an array') unless ref($resp_r) eq 'ARRAY';
+    die('$resp_r must be an array') if ref($resp_r) ne 'ARRAY';
 
     # If the transaction response is too big/small, just abort the whole
     # mess now.
@@ -559,13 +559,13 @@ sub RespondTransaction { # {{{1
     my ($port, $paddr) = unpack_sockaddr_at($RqCB->{'sockaddr'});
     my $addr = atalk_ntoa($paddr);
     my $txkey = join('/', $addr, $port, $RqCB->{'txid'});
-    die() unless exists $self->{'Shared'}{'RqCB_list'}{$txkey};
+    die() if not exists $self->{'Shared'}{'RqCB_list'}{$txkey};
 
     my $pktdata = &share([]);
 
     foreach my $seq (0 .. $#$resp_r) {
         die('$resp_r->[' . $seq . '] was not a hash ref')
-                unless ref($resp_r->[$seq]) eq 'HASH';
+                if ref($resp_r->[$seq]) ne 'HASH';
         my $ctl_byte = ATP_TResp;
         # last packet in provided set, so tell the requester that this is
         # end of message...
@@ -574,7 +574,7 @@ sub RespondTransaction { # {{{1
                 $RqCB->{'txid'}, @{$resp_r->[$seq]}{'userbytes', 'data'});
         $pktdata->[$seq] = $msg;
 
-        next unless $RqCB->{'seq_bmp'} & (1 << $seq);
+        next if not $RqCB->{'seq_bmp'} & (1 << $seq);
 
         # Okay, let's try registering the RspCB just before the last packet
         # posts to the server...

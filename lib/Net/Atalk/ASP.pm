@@ -28,7 +28,7 @@ sub new { # {{{1
 
     my $obj = bless {}, $class;
     $obj->{'atpsess'}       = new Net::Atalk::ATP();
-    return unless defined $obj->{'atpsess'};
+    return if not defined $obj->{'atpsess'};
     $obj->{'host'}          = $host;
     $obj->{'svcport'}       = $port;
     $obj->{'last_tickle'}   = undef;
@@ -103,7 +103,7 @@ sub SPGetStatus { # {{{1
     my ($self, $resp_r) = @_;
 
     die('$resp_r must be a scalar ref')
-            unless ref($resp_r) eq 'SCALAR' or ref($resp_r) eq 'REF';
+            if ref($resp_r) ne 'SCALAR' and ref($resp_r) ne 'REF';
 
     my ($rdata, $success);
     my $msg = pack('Cx[3]', OP_SP_GETSTATUS);
@@ -117,9 +117,9 @@ sub SPGetStatus { # {{{1
         'NumTries'          => 3,
         'PeerAddr'          => $sa,
     );
-    return $sem unless ref($sem);
+    return $sem if not ref($sem);
     $sem->down();
-    unless ($success) { return kASPNoServers; }
+    if (!$success) { return kASPNoServers; }
     $$resp_r = $rdata->[0][1];
     return kASPNoError;
 } # }}}1
@@ -141,9 +141,9 @@ sub SPOpenSession { # {{{1
         'PeerAddr'          => $sa,
         'ExactlyOnce'       => ATP_TREL_30SEC,
     );
-    return $sem unless ref($sem);
+    return $sem if not ref($sem);
     $sem->down();
-    unless ($success) { return kASPNoServers; }
+    if (!$success) { return kASPNoServers; }
     my ($srv_sockno, $sessionid, $errno)    = unpack('CCn', $rdata->[0][0]);
     @$self{'sessport', 'sessionid'}         = ($srv_sockno, $sessionid);
     $self->{'seqno'}                        = 0;
@@ -228,9 +228,9 @@ sub SPCommand { # {{{1
         'PeerAddr'          => $sa,
         'ExactlyOnce'       => ATP_TREL_30SEC
     );
-    return $sem unless ref($sem);
+    return $sem if not ref($sem);
     $sem->down();
-    unless ($success) { return kASPNoServers; }
+    if (!$success) { return kASPNoServers; }
     # string the response bodies back together
     $$resp_r = join('', map { $_->[1]; } @$rdata);
     # user bytes from the first response packet are the only ones that
@@ -244,9 +244,9 @@ sub SPWrite { # {{{1
     my ($self, $message, $data_r, $d_len, $resp_r) = @_;
 
     die('$resp_r must be a scalar ref')
-            unless ref($resp_r) eq 'SCALAR' or ref($resp_r) eq 'REF';
+            if ref($resp_r) ne 'SCALAR' and ref($resp_r) ne 'REF';
     die('$data_r must be a scalar ref')
-            unless ref($data_r) eq 'SCALAR' or ref($data_r) eq 'REF';
+            if ref($data_r) ne 'SCALAR' and ref($data_r) ne 'REF';
     $d_len ||= length($$data_r);
 
     my $seqno = $self->{'seqno'}++ % (2 ** 16);
@@ -265,7 +265,7 @@ sub SPWrite { # {{{1
         'PeerAddr'          => $sa,
         'ExactlyOnce'       => ATP_TREL_30SEC
     );
-    return $sem unless ref($sem);
+    return $sem if not ref($sem);
 
     if (defined $success) { # Could possibly have already failed...
         my $rcode;
