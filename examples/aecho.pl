@@ -10,8 +10,10 @@ use Net::Atalk::NBP;
 use Time::HiRes qw(gettimeofday setitimer ITIMER_REAL time);
 use Errno qw(EINTR);
 use Getopt::Long;
-use constant AEPOP_REQUEST  => 1;
-use constant AEPOP_REPLY    => 2;
+use Readonly;
+
+Readonly my $AEPOP_REQUEST  => 1;
+Readonly my $AEPOP_REPLY    => 2;
 
 use Carp ();
 local $SIG{'__WARN__'} = \&Carp::cluck;
@@ -47,7 +49,7 @@ if ($datalen < 0) {
     exit(1);
 }
 
-if ($datalen + length(pack('x[C]x[C]x[L!]')) > DDP_MAXSZ) {
+if ($datalen + length(pack('x[C]x[C]x[L!]')) > $DDP_MAXSZ) {
     print STDERR "Data size impossibly large for DDP\n";
     exit(1);
 }
@@ -90,7 +92,7 @@ sub send_echo {
     if ($timing) {
         substr($trailer, 0, $stamplen, pack('L!L!', gettimeofday()));
     }
-    my $msg = pack('CCL!a*', DDPTYPE_AEP, AEPOP_REQUEST, $sent++, $trailer);
+    my $msg = pack('CCL!a*', $DDPTYPE_AEP, $AEPOP_REQUEST, $sent++, $trailer);
     die "send() failed: $!" unless defined send($sock, $msg, 0, $dest);
     if ($count && $sent > $count) { finish() }
     $SIG{'ALRM'} = \&send_echo;
@@ -129,7 +131,7 @@ setitimer(ITIMER_REAL, $interval, $interval);
 
 while (1) {
     my $rbuf;
-    my $from = recv($sock, $rbuf, DDP_MAXSZ, 0);
+    my $from = recv($sock, $rbuf, $DDP_MAXSZ, 0);
     unless (defined $from) {
         next if $! == EINTR;
         die "recv failed: $!";

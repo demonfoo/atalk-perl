@@ -6,18 +6,24 @@ package Net::Atalk::ATP;
 
 use strict;
 use warnings;
+use diagnostics;
+use Readonly;
 
-use constant kASPNoError        => 0;
-use constant kASPBadVersNum     => -1066;
-use constant kASPBufTooSmall    => -1067;
-use constant kASPNoMoreSessions => -1068;
-use constant kASPNoServers      => -1069;
-use constant kASPParamErr       => -1070;
-use constant kASPServerBusy     => -1071;
-use constant kASPSessClosed     => -1072;
-use constant kASPSizeErr        => -1073;
-use constant kASPTooManyClients => -1074;
-use constant kASPNoAck          => -1075;
+# Enables a nice call trace on warning events.
+use Carp;
+local $SIG{'__WARN__'} = \&Carp::cluck;
+
+Readonly our $kASPNoError        => 0;
+Readonly our $kASPBadVersNum     => -1066;
+Readonly our $kASPBufTooSmall    => -1067;
+Readonly our $kASPNoMoreSessions => -1068;
+Readonly our $kASPNoServers      => -1069;
+Readonly our $kASPParamErr       => -1070;
+Readonly our $kASPServerBusy     => -1071;
+Readonly our $kASPSessClosed     => -1072;
+Readonly our $kASPSizeErr        => -1073;
+Readonly our $kASPTooManyClients => -1074;
+Readonly our $kASPNoAck          => -1075;
 
 # Disabling strict refs because for the installable transaction filters
 # to work, I have to be able to have some way to deref the subroutines,
@@ -34,39 +40,40 @@ use threads::shared;
 use Thread::Semaphore;
 use Exporter qw(import);
 use Scalar::Util qw(dualvar);
+use English qw(-no_match_vars);
 
 # ATP message types.
-use constant ATP_TReq           => (0x1 << 6);  # Transaction request
-use constant ATP_TResp          => (0x2 << 6);  # Transaction response
-use constant ATP_TRel           => (0x3 << 6);  # Transaction release
+Readonly my $ATP_TReq           => (0x1 << 6);  # Transaction request
+Readonly my $ATP_TResp          => (0x2 << 6);  # Transaction response
+Readonly my $ATP_TRel           => (0x3 << 6);  # Transaction release
 
 # Fields of the control byte (first byte) in an ATP message.
-use constant ATP_CTL_FNCODE     => 0xC0;
-use constant ATP_CTL_XOBIT      => 0x20;    # transaction must happen
+Readonly my $ATP_CTL_FNCODE     => 0xC0;
+Readonly my $ATP_CTL_XOBIT      => 0x20;    # transaction must happen
                                             # exactly once
-use constant ATP_CTL_EOMBIT     => 0x10;    # packet is end of message
-use constant ATP_CTL_STSBIT     => 0x08;    # send transaction status; upon
+Readonly my $ATP_CTL_EOMBIT     => 0x10;    # packet is end of message
+Readonly my $ATP_CTL_STSBIT     => 0x08;    # send transaction status; upon
                                             # receipt by originator, resend
                                             # TReq packet
-use constant ATP_CTL_TREL_TMOUT => 0x07;
+Readonly my $ATP_CTL_TREL_TMOUT => 0x07;
 
 # TRel timeout periods for XO (exactly-once) transactions. Ignored by
 # AppleTalk Phase1 implementations; I don't think this applies to anything
 # except really, really old stuff.
-use constant ATP_TREL_30SEC     => 0x00;
-use constant ATP_TREL_1MIN      => 0x01;
-use constant ATP_TREL_2MIN      => 0x02;
-use constant ATP_TREL_4MIN      => 0x03;
-use constant ATP_TREL_8MIN      => 0x04;
+Readonly my $ATP_TREL_30SEC     => 0x00;
+Readonly my $ATP_TREL_1MIN      => 0x01;
+Readonly my $ATP_TREL_2MIN      => 0x02;
+Readonly my $ATP_TREL_4MIN      => 0x03;
+Readonly my $ATP_TREL_8MIN      => 0x04;
 
 # The maximum length of the ATP message body.
-use constant ATP_MAXLEN         => 578;
+Readonly my $ATP_MAXLEN         => 578;
 
 # symbols to export
-our @EXPORT = qw(ATP_TREL_30SEC ATP_TREL_1MIN ATP_TREL_2MIN ATP_TREL_4MIN
-        ATP_TREL_8MIN ATP_MAXLEN kASPNoError kASPBadVersNum kASPBufTooSmall
-        kASPNoMoreSessions kASPNoServers kASPParamErr kASPServerBusy
-        kASPSessClosed kASPSizeErr kASPTooManyClients kASPNoAck);
+our @EXPORT = qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN $ATP_TREL_4MIN
+        $ATP_TREL_8MIN $ATP_MAXLEN $kASPNoError $kASPBadVersNum $kASPBufTooSmall
+        $kASPNoMoreSessions $kASPNoServers $kASPParamErr $kASPServerBusy
+        $kASPSessClosed $kASPSizeErr $kASPTooManyClients $kASPNoAck);
 
 my $atp_header :shared;
 $atp_header = 'CCCna[4]a*';
@@ -75,11 +82,11 @@ my @atp_header_fields :shared;
         'data');
 my %xo_timeouts :shared;
 %xo_timeouts = (
-                 &ATP_TREL_30SEC    => 30,
-                 &ATP_TREL_1MIN     => 60,
-                 &ATP_TREL_2MIN     => 120,
-                 &ATP_TREL_4MIN     => 240,
-                 &ATP_TREL_8MIN     => 480,
+                 $ATP_TREL_30SEC    => 30,
+                 $ATP_TREL_1MIN     => 60,
+                 $ATP_TREL_2MIN     => 120,
+                 $ATP_TREL_4MIN     => 240,
+                 $ATP_TREL_8MIN     => 480,
                );
 
 sub new { # {{{1
@@ -93,11 +100,11 @@ sub new { # {{{1
                  'exit'         => 0,
                  'last_txid'    => int(rand(2 ** 16)),
                  'conn_fd'      => undef,
-                 'conn_sem'     => new Thread::Semaphore(0),
+                 'conn_sem'     => Thread::Semaphore->new(0),
                  'TxCB_list'    => &share({}),
                  'RqCB_list'    => &share({}),
                  'RqCB_txq'     => &share([]),
-                 'RqCB_sem'     => new Thread::Semaphore(0),
+                 'RqCB_sem'     => Thread::Semaphore->new(0),
                  'RqFilters'    => &share([]),
                  'TimedCBs'     => &share([]),
                  'RspCB_list'   => &share({}),
@@ -106,7 +113,7 @@ sub new { # {{{1
     my $thread = threads->create(\&thread_core, $shared, %sockopts);
     $obj->{'Dispatcher'}    = $thread;
     $shared->{'conn_sem'}->down();
-    $obj->{'Conn'} = new IO::Handle;
+    $obj->{'Conn'} = IO::Handle->new();
     if ($shared->{'running'} == 1) {
         $obj->{'Conn'}->fdopen($shared->{'conn_fd'}, 'w');
     }
@@ -116,7 +123,7 @@ sub new { # {{{1
     $shared->{'conn_sem'}->up();
 
     if (exists $shared->{'errno'}) {
-        $! = dualvar $shared->{'errno'}, $shared->{'error'};
+        $ERRNO = dualvar $shared->{'errno'}, $shared->{'error'};
     }
     return($shared->{'running'} == 1 ? $obj : undef);
 } # }}}1
@@ -125,6 +132,7 @@ sub close { # {{{1
     my ($self) = @_;
     $self->{'Shared'}{'exit'} = 1;
     $self->{'Dispatcher'}->join();
+    return;
 } # }}}1
 
 sub sockaddr { # {{{1
@@ -155,11 +163,11 @@ sub thread_core { # {{{1
     my %connect_args = ( 'Proto'        => 'ddp',
                          'Type'         => SOCK_DGRAM,
                          %sockopts );
-    my $conn = new IO::Socket::DDP(%connect_args);
+    my $conn = IO::Socket::DDP->new(%connect_args);
     if (!$conn || !$conn->sockaddr()) {
         $shared->{'running'}    = -1;
-        $shared->{'error'}      = $!;
-        $shared->{'errno'}      = int($!);
+        $shared->{'error'}      = $ERRNO;
+        $shared->{'errno'}      = int($ERRNO);
         $shared->{'conn_sem'}->up();
         return;
     }
@@ -175,19 +183,19 @@ sub thread_core { # {{{1
 
     # Set up a poll object for checking out our socket. Also preallocate
     # several variables which will be used in the main loop.
-    my $poll = new IO::Poll();
+    my $poll = IO::Poll->new();
     $poll->mask($conn, POLLIN);
     my ($txid, $TxCB, $time, $from, $msg, %msgdata, $msgtype,
         $wants_sts, $is_eom, $seqno, $RqCB, $is_xo, $xo_tmout, $RspCB, $seq,
-        $pktdata, $ctl_byte, $filter, $rv, $item, $stamp, $port, $paddr,
-        $addr, $txkey, $rec, $cb);
+        $pktdata, $ctl_byte, $rv, $item, $port, $paddr, $addr,
+        $txkey, $cb);
 
 MAINLOOP:
     while ($shared->{'exit'} == 0) { # {{{2
         $time = gettimeofday();
 
         # Check for any timed callbacks.
-        foreach $rec (@{$shared->{'TimedCBs'}}) { # {{{3
+        foreach my $rec (@{$shared->{'TimedCBs'}}) { # {{{3
             if (($rec->{'last_called'} + $rec->{'period'}) < $time) {
                 $cb = $rec->{'callback'};
                 &{$cb->[0]}(@$cb[1 .. $#$cb], $time, $shared);
@@ -243,19 +251,19 @@ MAINLOOP:
         next MAINLOOP if not $poll->poll(0.5);
 
         # We've got something. Read in a potential packet. We know it's
-        # never going to be larger than DDP_MAXSZ.
+        # never going to be larger than $DDP_MAXSZ.
         $shared->{'conn_sem'}->down();
-        $from = recv($conn, $msg, DDP_MAXSZ, 0);
+        $from = recv($conn, $msg, $DDP_MAXSZ, 0);
         $shared->{'conn_sem'}->up();
         next MAINLOOP if not defined $from;
 
         # Unpack the packet into its constituent fields, and quietly
         # move on if its DDP type field is wrong.
         @msgdata{@atp_header_fields} = unpack($atp_header, $msg);
-        next MAINLOOP if $msgdata{'ddp_type'} != DDPTYPE_ATP;
+        next MAINLOOP if $msgdata{'ddp_type'} != $DDPTYPE_ATP;
 
         # Let's see what kind of message we've been sent.
-        $msgtype = $msgdata{'ctl'} & ATP_CTL_FNCODE;
+        $msgtype = $msgdata{'ctl'} & $ATP_CTL_FNCODE;
         $txid = $msgdata{'txid'};
 
         # Get the requester source address and port and jam everything
@@ -265,10 +273,10 @@ MAINLOOP:
         $addr = atalk_ntoa($paddr);
         $txkey = join('/', $addr, $port, $txid);
 
-        if ($msgtype == ATP_TReq) { # {{{3
+        if ($msgtype == $ATP_TReq) { # {{{3
             # Remote is asking to initiate a transaction with us.
-            $is_xo      = $msgdata{'ctl'} & ATP_CTL_XOBIT;
-            $xo_tmout   = $msgdata{'ctl'} & ATP_CTL_TREL_TMOUT;
+            $is_xo      = $msgdata{'ctl'} & $ATP_CTL_XOBIT;
+            $xo_tmout   = $msgdata{'ctl'} & $ATP_CTL_TREL_TMOUT;
 
             # Ignore a duplicate transaction request.
             next MAINLOOP if exists $shared->{'RqCB_list'}{$txkey};
@@ -308,7 +316,7 @@ MAINLOOP:
             # Try running the request block through any registered
             # transaction filter handlers before putting it on the
             # list for outside processing.
-            foreach $filter (@{$shared->{'RqFilters'}}) { # {{{4
+            foreach my $filter (@{$shared->{'RqFilters'}}) { # {{{4
                 $rv = &{$filter->[0]}(@$filter[1 .. $#$filter], $RqCB);
                 # If the filter returned something other than undef,
                 # it is (well, should be) an array ref containing
@@ -317,11 +325,11 @@ MAINLOOP:
                 $pktdata = &share([]);
                 foreach my $seq (0 .. $#$rv) {
                     $item = $rv->[$seq];
-                    $ctl_byte = ATP_TResp;
+                    $ctl_byte = $ATP_TResp;
                     # last packet in provided set, so tell the
                     # requester that this is end of message...
-                    if ($seq == $#$rv) { $ctl_byte |= ATP_CTL_EOMBIT }
-                    $msg = pack($atp_header, DDPTYPE_ATP, $ctl_byte,
+                    if ($seq == $#$rv) { $ctl_byte |= $ATP_CTL_EOMBIT }
+                    $msg = pack($atp_header, $DDPTYPE_ATP, $ctl_byte,
                             $seq, $txid, @$item{'userbytes', 'data'});
                     $pktdata->[$seq] = $msg;
 
@@ -351,7 +359,7 @@ MAINLOOP:
             push(@{$shared->{'RqCB_txq'}}, $RqCB);
             $shared->{'RqCB_sem'}->up();
         } # }}}3
-        elsif ($msgtype == ATP_TResp) { # {{{3
+        elsif ($msgtype == $ATP_TResp) { # {{{3
             # Remote is responding to a transaction we initiated.
 
             # Ignore a transaction response to a transaction that we don't
@@ -362,8 +370,8 @@ MAINLOOP:
             # Get the transaction block, and grab a few bits of info
             # out of it to keep them at hand.
             $TxCB       = $shared->{'TxCB_list'}{$txid};
-            $is_eom     = $msgdata{'ctl'} & ATP_CTL_EOMBIT;
-            $wants_sts  = $msgdata{'ctl'} & ATP_CTL_STSBIT;
+            $is_eom     = $msgdata{'ctl'} & $ATP_CTL_EOMBIT;
+            $wants_sts  = $msgdata{'ctl'} & $ATP_CTL_STSBIT;
             $seqno      = $msgdata{'bmp_seq'};
 
             # If the server says this packet is the end of the transaction
@@ -392,7 +400,7 @@ MAINLOOP:
                 next MAINLOOP if !$TxCB->{'is_xo'};
 
                 # Don't need to preserve the XO bits.
-                substr($TxCB->{'msg'}, 1, 1, pack('C', ATP_TRel));
+                substr($TxCB->{'msg'}, 1, 1, pack('C', $ATP_TRel));
                 $shared->{'conn_sem'}->down();
                 send($conn, $TxCB->{'msg'}, 0, $TxCB->{'target'});
                 $shared->{'conn_sem'}->up();
@@ -402,7 +410,7 @@ MAINLOOP:
             # If the server wants an STS, or the sequence number is
             # high enough that it's not going up further but there are
             # still packets we need, then resend the request packet.
-            next MAINLOOP if !$wants_sts and (!$TxCB->{'seq_bmp'} or
+            next MAINLOOP if not($wants_sts) and (not($TxCB->{'seq_bmp'}) or
                     ($TxCB->{'seq_bmp'} >> $seqno));
 
             # Update packet data with new sequence bitmap.
@@ -413,7 +421,7 @@ MAINLOOP:
             $TxCB->{'stamp'} = gettimeofday();
             $shared->{'conn_sem'}->up();
         } # }}}3
-        elsif ($msgtype == ATP_TRel) { # {{{3
+        elsif ($msgtype == $ATP_TRel) { # {{{3
             # Peer has sent us a transaction release message, so drop
             # the pending RspCB if one is present. I think we can
             # safely delete even if it's not there; saves us the time
@@ -434,38 +442,39 @@ MAINLOOP:
 
     undef $shared->{'conn_fd'};
     CORE::close($conn);
+    return;
 } # }}}1
 
 sub SendTransaction { # {{{1
     my ($self, %options) = @_;
 
-    die('UserBytes must be provided')
+    croak('UserBytes must be provided')
             if not exists $options{'UserBytes'};
     $options{'Data'} ||= '';
-    die('ResponseLength must be provided')
+    croak('ResponseLength must be provided')
             if not exists $options{'ResponseLength'};
     $options{'ResponseStore'} ||= *foo{SCALAR};
-    die('ResponseStore must be provided and be a scalar ref')
+    croak('ResponseStore must be provided and be a scalar ref')
             if ref($options{'ResponseStore'}) ne 'SCALAR' and
                  ref($options{'ResponseStore'}) ne 'REF';
     $options{'StatusStore'} ||= *bar{SCALAR};
-    die('StatusStore must be provided and be a scalar ref')
+    croak('StatusStore must be provided and be a scalar ref')
             if ref($options{'StatusStore'}) ne 'SCALAR' and
                  ref($options{'StatusStore'}) ne 'REF';
-    die('Timeout must be provided') if not exists $options{'Timeout'};
+    croak('Timeout must be provided') if not exists $options{'Timeout'};
     $options{'NumTries'} ||= -1;
     $options{'PeerAddr'} ||= undef;
 
     # Check a few parameters before we proceed.
-    return kASPSizeErr if length($options{'Data'}) > ATP_MAXLEN;
+    return $kASPSizeErr if length($options{'Data'}) > $ATP_MAXLEN;
     return if $options{'ResponseLength'} > 8;
     return if length($options{'UserBytes'}) > 4;
-    return kASPSessClosed if $self->{'Shared'}{'running'} != 1;
+    return $kASPSessClosed if $self->{'Shared'}{'running'} != 1;
 
     # Set up the outgoing transaction request packet.
-    my $ctl_byte = ATP_TReq;
+    my $ctl_byte = $ATP_TReq;
     if (exists $options{'ExactlyOnce'}) {
-        $ctl_byte |= ATP_CTL_XOBIT | $options{'ExactlyOnce'};
+        $ctl_byte |= $ATP_CTL_XOBIT | $options{'ExactlyOnce'};
     }
     my $seq_bmp = 0xFF >> (8 - $options{'ResponseLength'});
 
@@ -477,7 +486,7 @@ sub SendTransaction { # {{{1
         $txid = ++$self->{'Shared'}{'last_txid'} % (2 ** 16);
     } while (exists $TxCB_queue->{$txid});
 
-    my $msg = pack($atp_header, DDPTYPE_ATP, $ctl_byte, $seq_bmp, $txid,
+    my $msg = pack($atp_header, $DDPTYPE_ATP, $ctl_byte, $seq_bmp, $txid,
             $options{'UserBytes'}, $options{'Data'});
 
     # Set up the transaction control block.
@@ -490,7 +499,7 @@ sub SendTransaction { # {{{1
                  'seq_bmp'  => $seq_bmp,
                  'is_xo'    => exists $options{'ExactlyOnce'},
                  'tmout'    => $options{'Timeout'},
-                 'sem'      => new Thread::Semaphore(0),
+                 'sem'      => Thread::Semaphore->new(0),
                  'sflag'    => &share($options{'StatusStore'}),
                  'target'   => $options{'PeerAddr'},
                );
@@ -548,29 +557,29 @@ sub GetTransaction { # {{{1
 sub RespondTransaction { # {{{1
     my ($self, $RqCB, $resp_r) = @_;
     
-    die('$resp_r must be an array') if ref($resp_r) ne 'ARRAY';
+    croak('$resp_r must be an array') if ref($resp_r) ne 'ARRAY';
 
     # If the transaction response is too big/small, just abort the whole
     # mess now.
-    die('Ridiculous number of response packets supplied')
+    croak('Ridiculous number of response packets supplied')
             if scalar(@$resp_r) > 8 or scalar(@$resp_r) < 1;
 
     # Abort if the transaction ID that the caller indicated is unknown to us.
     my ($port, $paddr) = unpack_sockaddr_at($RqCB->{'sockaddr'});
     my $addr = atalk_ntoa($paddr);
     my $txkey = join('/', $addr, $port, $RqCB->{'txid'});
-    die() if not exists $self->{'Shared'}{'RqCB_list'}{$txkey};
+    croak() if not exists $self->{'Shared'}{'RqCB_list'}{$txkey};
 
     my $pktdata = &share([]);
 
     foreach my $seq (0 .. $#$resp_r) {
-        die('$resp_r->[' . $seq . '] was not a hash ref')
+        croak('$resp_r->[' . $seq . '] was not a hash ref')
                 if ref($resp_r->[$seq]) ne 'HASH';
-        my $ctl_byte = ATP_TResp;
+        my $ctl_byte = $ATP_TResp;
         # last packet in provided set, so tell the requester that this is
         # end of message...
-        if ($seq == $#$resp_r) { $ctl_byte |= ATP_CTL_EOMBIT }
-        my $msg = pack($atp_header, DDPTYPE_ATP, $ctl_byte, $seq,
+        if ($seq == $#$resp_r) { $ctl_byte |= $ATP_CTL_EOMBIT }
+        my $msg = pack($atp_header, $DDPTYPE_ATP, $ctl_byte, $seq,
                 $RqCB->{'txid'}, @{$resp_r->[$seq]}{'userbytes', 'data'});
         $pktdata->[$seq] = $msg;
 
@@ -596,6 +605,7 @@ sub RespondTransaction { # {{{1
 
     # Remove the transaction from the stored list.
     delete $self->{'Shared'}{'RqCB_list'}{$txkey};
+    return;
 } # }}}1
 
 # The idea here is to be able to pass a subroutine that looks at the
@@ -605,6 +615,7 @@ sub AddTransactionFilter { # {{{1
     my ($self, $filter) = @_;
 
     push(@{$self->{'Shared'}{'RqFilters'}}, $filter);
+    return;
 } # }}}1
 
 sub AddPeriodicCallback { # {{{1
@@ -617,6 +628,7 @@ sub AddPeriodicCallback { # {{{1
         'last_called'   => 0,
     );
     push(@{$self->{'Shared'}{'TimedCBs'}}, $cb_rec);
+    return;
 } # }}}1
 
 1;

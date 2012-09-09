@@ -129,7 +129,7 @@ sub configure {
 			or return _error($sock, $!, $@);
 
     $laddr = defined $laddr ? atalk_aton($laddr)
-			    : ATADDR_ANY;
+			    : $ATADDR_ANY;
 
     return _error($sock, EINVAL, "Bad hostname '",$arg->{LocalAddr},"'")
 	unless(defined $laddr);
