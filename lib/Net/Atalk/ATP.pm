@@ -467,7 +467,7 @@ sub SendTransaction { # {{{1
 
     # Check a few parameters before we proceed.
     croak('Data size was infeasibly large') 
-            if length($options{'Data'}) > ATP_MAXLEN;
+            if length($options{'Data'}) > $ATP_MAXLEN;
     croak('Caller requested impossible number of response packets')
             if $options{'ResponseLength'} > 8;
     croak('UserBytes block was too large')
