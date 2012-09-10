@@ -466,10 +466,14 @@ sub SendTransaction { # {{{1
     $options{'PeerAddr'} ||= undef;
 
     # Check a few parameters before we proceed.
-    return $kASPSizeErr if length($options{'Data'}) > $ATP_MAXLEN;
-    return if $options{'ResponseLength'} > 8;
-    return if length($options{'UserBytes'}) > 4;
-    return $kASPSessClosed if $self->{'Shared'}{'running'} != 1;
+    croak('Data size was infeasibly large') 
+            if length($options{'Data'}) > ATP_MAXLEN;
+    croak('Caller requested impossible number of response packets')
+            if $options{'ResponseLength'} > 8;
+    croak('UserBytes block was too large')
+            if length($options{'UserBytes'}) > 4;
+    croak('Attempted to initiate transaction with peer with no running thread')
+        if $self->{'Shared'}{'running'} != 1;
 
     # Set up the outgoing transaction request packet.
     my $ctl_byte = $ATP_TReq;
