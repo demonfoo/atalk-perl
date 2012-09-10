@@ -131,7 +131,6 @@ sub SPGetStatus { # {{{1
     $sem->down();
     if (!$success) { return $kASPNoServers; }
     ${$resp_r} = $rdata->[0][1];
-    print '$kASPNoError is ', $kASPNoError, "\n";
     return $kASPNoError;
 } # }}}1
 
