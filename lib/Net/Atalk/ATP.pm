@@ -60,14 +60,14 @@ Readonly my $ATP_CTL_TREL_TMOUT => 0x07;
 # TRel timeout periods for XO (exactly-once) transactions. Ignored by
 # AppleTalk Phase1 implementations; I don't think this applies to anything
 # except really, really old stuff.
-Readonly my $ATP_TREL_30SEC     => 0x00;
-Readonly my $ATP_TREL_1MIN      => 0x01;
-Readonly my $ATP_TREL_2MIN      => 0x02;
-Readonly my $ATP_TREL_4MIN      => 0x03;
-Readonly my $ATP_TREL_8MIN      => 0x04;
+Readonly our $ATP_TREL_30SEC     => 0x00;
+Readonly our $ATP_TREL_1MIN      => 0x01;
+Readonly our $ATP_TREL_2MIN      => 0x02;
+Readonly our $ATP_TREL_4MIN      => 0x03;
+Readonly our $ATP_TREL_8MIN      => 0x04;
 
 # The maximum length of the ATP message body.
-Readonly my $ATP_MAXLEN         => 578;
+Readonly our $ATP_MAXLEN         => 578;
 
 # symbols to export
 our @EXPORT = qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN $ATP_TREL_4MIN
@@ -472,8 +472,7 @@ sub SendTransaction { # {{{1
             if $options{'ResponseLength'} > 8;
     croak('UserBytes block was too large')
             if length($options{'UserBytes'}) > 4;
-    croak('Attempted to initiate transaction with peer with no running thread')
-        if $self->{'Shared'}{'running'} != 1;
+    return $kASPSessClosed if $self->{'Shared'}{'running'} != 1;
 
     # Set up the outgoing transaction request packet.
     my $ctl_byte = $ATP_TReq;
