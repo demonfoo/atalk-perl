@@ -1,0 +1,66 @@
+=head1 NAME
+
+Net::Atalk::PAP - Object interface for AppleTalk Printer Access Protocol
+
+=head1 SYNOPSIS
+
+    use Net::Atalk::PAP;
+
+=head1 DESCRIPTION
+
+C<Net::Atalk::PAP> provides an object-based interface to interacting with
+an AppleTalk Printer Access Protocol server.
+
+=head1 CONSTRUCTOR
+
+=over
+
+=item new (HOST, PORT, ...)
+
+Creates a C<Net::Atalk::PAP> object. Requires an AppleTalk host address
+and DDP port number. Additional parameters can be supplied, which will be
+passed through to C<IO::Socket::DDP>.
+
+=back
+
+=head2 METHODS
+
+=over
+
+=item close ()
+
+Destroy the underlying ATP session.
+
+=item PAPStatus (RESP_R)
+
+The C<PAPStatus> call requests the status of the associated print spool.
+
+RESP_R must be a scalar ref, which will contain the string describing the
+current status of the print queue.
+
+=item PAPOpen (WAITTIME, RESP_R)
+
+=item PAPClose ()
+
+=item PAPWrite 
+
+=back
+
+=head1 REFERENCES
+
+The Printer Access Protocol implementation contained herein is based
+on the protocol description as provided by Apple, in the book "Inside
+AppleTalk", chapter 11. "Inside AppleTalk" is available freely via the
+Internet in PDF form, at:
+
+L<http://developer.apple.com/MacOs/opentransport/docs/dev/Inside_AppleTalk.pdf>
+
+=head1 SEE ALSO
+
+C<Net::Atalk::ATP>
+
+=head1 AUTHOR
+
+Derrik Pates <demon@now.ai>
+
+=cut

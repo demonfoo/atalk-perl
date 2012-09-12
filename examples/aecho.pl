@@ -11,11 +11,12 @@ use Time::HiRes qw(gettimeofday setitimer ITIMER_REAL time);
 use Errno qw(EINTR);
 use Getopt::Long;
 use Readonly;
+use English qw(-no_match_vars);
 
 Readonly my $AEPOP_REQUEST  => 1;
 Readonly my $AEPOP_REPLY    => 2;
 
-use Carp ();
+use Carp;
 local $SIG{'__WARN__'} = \&Carp::cluck;
 
 my $port = getservbyname('echo', 'ddp') || 4;
@@ -42,7 +43,7 @@ GetOptions( 'c=i'   => \$count,
             'a'     => \$audible,
             'h'     => \&usage ) || usage();
 
-usage() unless scalar(@ARGV) == 1;
+usage() if scalar(@ARGV) != 1;
 
 if ($datalen < 0) {
     print STDERR "Data size less than 0 is impossible\n";
@@ -57,20 +58,20 @@ if ($datalen + length(pack('x[C]x[C]x[L!]')) > $DDP_MAXSZ) {
 my ($target) = @ARGV;
 
 my $paddr = atalk_aton($target);
-unless (defined $paddr) {
+if (!defined $paddr) {
     $target =~ s/(?::([\w\s\-]*|=))?(?:\@(\w*|\*))?$//;
     my ($type, $zone) = ($1, $2);
     my @tuples = NBPLookup($target, $type, $zone,
             exists $sockparms{'LocalAddr'} ? $sockparms{'LocalAddr'} : undef,
             1);
-    unless (scalar(@tuples)) {
+    if (!scalar(@tuples)) {
         printf(STDERR "Can't resolve \"\%s\"\n", $target);
         exit(1);
     }
     $target = $tuples[0][0];
     $paddr = atalk_aton($target);
 }
-my $sock = new IO::Socket::DDP(%sockparms) or die "Can't bind: $@";
+my $sock = new IO::Socket::DDP(%sockparms) or croak("Can't bind: $EVAL_ERROR");
 my $dest = pack_sockaddr_at($port, $paddr);
 
 my $stamplen = length(pack('x[L!]x[L!]'));
@@ -79,30 +80,31 @@ if ($datalen >= $stamplen) {
 }
 
 sub usage {
-    print "usage:\t", $0,
+    print "usage:\t", $PROGRAM_NAME,
             " [-abDq] [-I source address] [-i interval] \n\t\t",
             "[-c count] [-s size] ( addr | nbpname )\n";
     exit(1);
 }
 
 sub send_echo {
-    # Declare $! as local so error codes in this context don't leak out.
-    local $!;
+    # Declare $ERRNO as local so error codes in this context don't leak out.
+    local $ERRNO;
     my $trailer = "\0" x $datalen;
     if ($timing) {
         substr($trailer, 0, $stamplen, pack('L!L!', gettimeofday()));
     }
     my $msg = pack('CCL!a*', $DDPTYPE_AEP, $AEPOP_REQUEST, $sent++, $trailer);
-    die "send() failed: $!" unless defined send($sock, $msg, 0, $dest);
+    croak("send() failed: $ERRNO") if not defined send($sock, $msg, 0, $dest);
     if ($count && $sent > $count) { finish() }
     $SIG{'ALRM'} = \&send_echo;
+    return;
 }
 
 sub finish {
     if ($sent) {
         printf("\n---- \%s AEP Statistics ----\n", $target);
         printf("\%d packets sent, \%d packets received\%s, \%d\%\% packet loss\n",
-             $sent, $rcvd, $dups ? sprintf(', +%u duplicates', $dups) : '',
+             $sent, $rcvd, $dups ? sprintf(', +%u duplicates', $dups) : q{},
              ($sent - $rcvd) * 100 / $sent);
         if ($rcvd && $timing) {
             printf("round trip (msec) min/avg/max: \%.3f/\%.3f/\%.3f\n",
@@ -121,6 +123,7 @@ sub status {
         print STDERR "\n";
     }
     $SIG{'QUIT'} = \&status;
+    return;
 }
 
 $SIG{'INT'}     = \&finish;
@@ -132,9 +135,9 @@ setitimer(ITIMER_REAL, $interval, $interval);
 while (1) {
     my $rbuf;
     my $from = recv($sock, $rbuf, $DDP_MAXSZ, 0);
-    unless (defined $from) {
-        next if $! == EINTR;
-        die "recv failed: $!";
+    if (!defined $from) {
+        next if $ERRNO == EINTR;
+        croak("recv failed: $ERRNO");
     }
     if ($rcvd < $sent) { $rcvd++ } else { $dups++ }
     my ($ddptype, $aeptype, $seqno, $trailer) =
@@ -149,7 +152,7 @@ while (1) {
         if ($delta < $msec_min || $msec_min == -1) { $msec_min = $delta }
     }
     my $haddr = atalk_ntoa( (unpack_sockaddr_at($from))[1] );
-    unless ($quiet) {
+    if (!$quiet) {
         printf('[%f] ', time()) if $print_stamp;
         printf('%d bytes from %s: aep_seq=%d', length($rbuf), $haddr, $seqno);
         printf(', %.3f msec', $delta) if $timing;
