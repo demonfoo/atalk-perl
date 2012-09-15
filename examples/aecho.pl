@@ -46,12 +46,12 @@ GetOptions( 'c=i'   => \$count,
 usage() if scalar(@ARGV) != 1;
 
 if ($datalen < 0) {
-    print STDERR "Data size less than 0 is impossible\n";
+    print {*STDERR} "Data size less than 0 is impossible\n";
     exit(1);
 }
 
 if ($datalen + length(pack('x[C]x[C]x[L!]')) > $DDP_MAXSZ) {
-    print STDERR "Data size impossibly large for DDP\n";
+    print {*STDERR} "Data size impossibly large for DDP\n";
     exit(1);
 }
 
@@ -65,7 +65,7 @@ if (!defined $paddr) {
             exists $sockparms{'LocalAddr'} ? $sockparms{'LocalAddr'} : undef,
             1);
     if (!scalar(@tuples)) {
-        printf(STDERR "Can't resolve \"\%s\"\n", $target);
+        printf {*STDERR} "Can't resolve \"\%s\"\n", $target;
         exit(1);
     }
     $target = $tuples[0][0];
@@ -116,11 +116,11 @@ sub finish {
 
 sub status {
     if ($sent) {
-        printf(STDERR "\r\%d/\%d packets, \%d\%\% loss",
-                $sent, $rcvd, ($sent - $rcvd) * 100 / $sent);
-        printf(STDERR ', min/avg/max = %.3f/%.3f/%.3f ms', $msec_min,
-                $msec_total / ($rcvd + $dups), $msec_max) if $timing;
-        print STDERR "\n";
+        printf {*STDERR} "\r\%d/\%d packets, \%d\%\% loss",
+                $sent, $rcvd, ($sent - $rcvd) * 100 / $sent;
+        printf {*STDERR} ', min/avg/max = %.3f/%.3f/%.3f ms', $msec_min,
+                $msec_total / ($rcvd + $dups), $msec_max if $timing;
+        print {*STDERR} "\n";
     }
     $SIG{'QUIT'} = \&status;
     return;

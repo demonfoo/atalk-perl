@@ -12,7 +12,7 @@ use Getopt::Long;
 use English qw(-no_match_vars);
 
 sub usage {
-    print {STDERR} "usage:\t", $PROGRAM_NAME, " [-m | -l] [-v] [address]\n";
+    print {*STDERR} "usage:\t", $PROGRAM_NAME, " [-m | -l] [-v] [address]\n";
     exit 1;
 }
 

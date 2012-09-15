@@ -78,16 +78,15 @@ our @EXPORT = qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN $ATP_TREL_4MIN
 my $atp_header :shared;
 $atp_header = 'CCCna[4]a*';
 my @atp_header_fields :shared;
-@atp_header_fields = ('ddp_type', 'ctl', 'bmp_seq', 'txid', 'userbytes',
-        'data');
+@atp_header_fields = qw{ddp_type ctl bmp_seq txid userbytes data};
 my %xo_timeouts :shared;
 %xo_timeouts = (
-                 $ATP_TREL_30SEC    => 30,
-                 $ATP_TREL_1MIN     => 60,
-                 $ATP_TREL_2MIN     => 120,
-                 $ATP_TREL_4MIN     => 240,
-                 $ATP_TREL_8MIN     => 480,
-               );
+    $ATP_TREL_30SEC => 30,
+    $ATP_TREL_1MIN  => 60,
+    $ATP_TREL_2MIN  => 120,
+    $ATP_TREL_4MIN  => 240,
+    $ATP_TREL_8MIN  => 480,
+);
 
 sub new { # {{{1
     my ($class, %sockopts) = @_;
@@ -95,20 +94,20 @@ sub new { # {{{1
     my $obj = bless {}, $class;
 
     my $shared = &share({});
-    %$shared = (
-                 'running'      => 0,
-                 'exit'         => 0,
-                 'last_txid'    => int(rand(2 ** 16)),
-                 'conn_fd'      => undef,
-                 'conn_sem'     => Thread::Semaphore->new(0),
-                 'TxCB_list'    => &share({}),
-                 'RqCB_list'    => &share({}),
-                 'RqCB_txq'     => &share([]),
-                 'RqCB_sem'     => Thread::Semaphore->new(0),
-                 'RqFilters'    => &share([]),
-                 'TimedCBs'     => &share([]),
-                 'RspCB_list'   => &share({}),
-               );
+    %{$shared} = (
+        'running'       => 0,
+        'exit'          => 0,
+        'last_txid'     => int(rand(2 ** 16)),
+        'conn_fd'       => undef,
+        'conn_sem'      => Thread::Semaphore->new(0),
+        'TxCB_list'     => &share({}),
+        'RqCB_list'     => &share({}),
+        'RqCB_txq'      => &share([]),
+        'RqCB_sem'      => Thread::Semaphore->new(0),
+        'RqFilters'     => &share([]),
+        'TimedCBs'      => &share([]),
+        'RspCB_list'    => &share({}),
+    );
     $obj->{'Shared'}        = $shared;
     my $thread = threads->create(\&thread_core, $shared, %sockopts);
     $obj->{'Dispatcher'}    = $thread;
@@ -198,7 +197,7 @@ MAINLOOP:
         foreach my $rec (@{$shared->{'TimedCBs'}}) { # {{{3
             if (($rec->{'last_called'} + $rec->{'period'}) < $time) {
                 $cb = $rec->{'callback'};
-                &{$cb->[0]}(@$cb[1 .. $#$cb], $time, $shared);
+                &{$cb->[0]}(@{$cb}[1 .. $#{$cb}], $time, $shared);
                 $rec->{'last_called'} = $time;
             }
         } # }}}3
@@ -271,7 +270,7 @@ MAINLOOP:
         # can't stomp on one another's transaction requests.
         ($port, $paddr) = unpack_sockaddr_at($from);
         $addr = atalk_ntoa($paddr);
-        $txkey = join('/', $addr, $port, $txid);
+        $txkey = join(q{/}, $addr, $port, $txid);
 
         if ($msgtype == $ATP_TReq) { # {{{3
             # Remote is asking to initiate a transaction with us.
@@ -288,7 +287,7 @@ MAINLOOP:
                 $RqCB       = $RspCB->{'RqCB'};
                 $pktdata    = $RspCB->{'RespData'};
 
-                foreach my $seq (0 .. $#$pktdata) {
+                foreach my $seq (0 .. $#{$pktdata}) {
                     # Check if the sequence mask bit corresponding to
                     # the sequence number is set.
                     next if not $RqCB->{'seq_bmp'} & (1 << $seq);
@@ -302,44 +301,44 @@ MAINLOOP:
             } # }}}4
             $RqCB = &share({});
             # Set up the transaction request block.
-            %$RqCB = (
-                      'txid'            => $txid,
-                      'is_xo'           => $is_xo,
-                      'xo_tmout_bits'   => $xo_tmout,
-                      'xo_tmout'        => $xo_timeouts{$xo_tmout},
-                      'seq_bmp'         => $msgdata{'bmp_seq'},
-                      'userbytes'       => $msgdata{'userbytes'},
-                      'data'            => $msgdata{'data'},
-                      'sockaddr'        => $from,
-                    );
+            %{$RqCB} = (
+                'txid'          => $txid,
+                'is_xo'         => $is_xo,
+                'xo_tmout_bits' => $xo_tmout,
+                'xo_tmout'      => $xo_timeouts{$xo_tmout},
+                'seq_bmp'       => $msgdata{'bmp_seq'},
+                'userbytes'     => $msgdata{'userbytes'},
+                'data'          => $msgdata{'data'},
+                'sockaddr'      => $from,
+            );
 
             # Try running the request block through any registered
             # transaction filter handlers before putting it on the
             # list for outside processing.
             foreach my $filter (@{$shared->{'RqFilters'}}) { # {{{4
-                $rv = &{$filter->[0]}(@$filter[1 .. $#$filter], $RqCB);
+                $rv = &{$filter->[0]}(@{$filter}[1 .. $#{$filter}], $RqCB);
                 # If the filter returned something other than undef,
                 # it is (well, should be) an array ref containing
                 # ATP user byte and payload blocks.
                 next if not $rv;
                 $pktdata = &share([]);
-                foreach my $seq (0 .. $#$rv) {
+                foreach my $seq (0 .. $#{$rv}) {
                     $item = $rv->[$seq];
                     $ctl_byte = $ATP_TResp;
                     # last packet in provided set, so tell the
                     # requester that this is end of message...
-                    if ($seq == $#$rv) { $ctl_byte |= $ATP_CTL_EOMBIT }
+                    if ($seq == $#{$rv}) { $ctl_byte |= $ATP_CTL_EOMBIT }
                     $msg = pack($atp_header, $DDPTYPE_ATP, $ctl_byte,
-                            $seq, $txid, @$item{'userbytes', 'data'});
+                            $seq, $txid, @{$item}{'userbytes', 'data'});
                     $pktdata->[$seq] = $msg;
 
                     next if not $RqCB->{'seq_bmp'} & (1 << $seq);
 
                     # Okay, let's try registering the RspCB just
                     # before the last packet posts to the server...
-                    if ($RqCB->{'is_xo'} && $seq == $#$rv) {
+                    if ($RqCB->{'is_xo'} && $seq == $#{$rv}) {
                         $RspCB = &share({});
-                        %$RspCB = (
+                        %{$RspCB} = (
                             'RqCB'      => $RqCB,
                             'RespData'  => $pktdata,
                             'tmout'     => $RqCB->{'xo_tmout'},
@@ -450,7 +449,7 @@ sub SendTransaction { # {{{1
 
     croak('UserBytes must be provided')
             if not exists $options{'UserBytes'};
-    $options{'Data'} ||= '';
+    $options{'Data'} ||= q{};
     croak('ResponseLength must be provided')
             if not exists $options{'ResponseLength'};
     $options{'ResponseStore'} ||= *foo{SCALAR};
@@ -495,7 +494,7 @@ sub SendTransaction { # {{{1
     # Set up the transaction control block.
     my $ntries = $options{'NumTries'};
     my $TxCB = &share({});
-    %$TxCB = (
+    %{$TxCB} = (
                  'msg'      => $msg,
                  'ntries'   => $ntries == -1 ? $ntries : ($ntries - 1),
                  'response' => &share([]),
@@ -534,14 +533,14 @@ sub GetTransaction { # {{{1
     # Handle optionally blocking for a new transaction.
     $self->{'Shared'}{'RqCB_sem'}->down() if $do_block;
 
-    foreach my $i (0 .. $#$RqCB_queue) {
+    foreach my $i (0 .. $#{$RqCB_queue}) {
         # If no transaction filter was passed, or the transaction filter
         # returned true, grab the RqCB out of the queue, remove it from
         # the pending queue, and return it to the caller.
-        if (!defined($filter) || &$filter($RqCB_queue->[$i])) {
+        if (!defined($filter) || &{$filter}($RqCB_queue->[$i])) {
             my $RqCB = $RqCB_queue->[$i];
-            @$RqCB_queue = @$RqCB_queue[0 .. ($i - 1),
-                    ($i + 1) .. $#$RqCB_queue];
+            @{$RqCB_queue} = @{$RqCB_queue}[0 .. ($i - 1),
+                    ($i + 1) .. $#{$RqCB_queue}];
             # If the caller asked to block to wait, restore the semaphore
             # count to where it should be.
             $self->{'Shared'}{'RqCB_sem'}->up($i - 1) if $do_block && $i > 0;
@@ -565,23 +564,23 @@ sub RespondTransaction { # {{{1
     # If the transaction response is too big/small, just abort the whole
     # mess now.
     croak('Ridiculous number of response packets supplied')
-            if scalar(@$resp_r) > 8 or scalar(@$resp_r) < 1;
+            if scalar(@{$resp_r}) > 8 or scalar(@{$resp_r}) < 1;
 
     # Abort if the transaction ID that the caller indicated is unknown to us.
     my ($port, $paddr) = unpack_sockaddr_at($RqCB->{'sockaddr'});
     my $addr = atalk_ntoa($paddr);
-    my $txkey = join('/', $addr, $port, $RqCB->{'txid'});
+    my $txkey = join(q{/}, $addr, $port, $RqCB->{'txid'});
     croak() if not exists $self->{'Shared'}{'RqCB_list'}{$txkey};
 
     my $pktdata = &share([]);
 
-    foreach my $seq (0 .. $#$resp_r) {
+    foreach my $seq (0 .. $#{$resp_r}) {
         croak('$resp_r->[' . $seq . '] was not a hash ref')
                 if ref($resp_r->[$seq]) ne 'HASH';
         my $ctl_byte = $ATP_TResp;
         # last packet in provided set, so tell the requester that this is
         # end of message...
-        if ($seq == $#$resp_r) { $ctl_byte |= $ATP_CTL_EOMBIT }
+        if ($seq == $#{$resp_r}) { $ctl_byte |= $ATP_CTL_EOMBIT }
         my $msg = pack($atp_header, $DDPTYPE_ATP, $ctl_byte, $seq,
                 $RqCB->{'txid'}, @{$resp_r->[$seq]}{'userbytes', 'data'});
         $pktdata->[$seq] = $msg;
@@ -590,9 +589,9 @@ sub RespondTransaction { # {{{1
 
         # Okay, let's try registering the RspCB just before the last packet
         # posts to the server...
-        if ($RqCB->{'is_xo'} && $seq == $#$resp_r) {
+        if ($RqCB->{'is_xo'} && $seq == $#{$resp_r}) {
             my $RspCB = &share({});
-            %$RspCB = (
+            %{$RspCB} = (
                 'RqCB'      => $RqCB,
                 'RespData'  => $pktdata,
                 'tmout'     => $RqCB->{'xo_tmout'},
@@ -625,7 +624,7 @@ sub AddPeriodicCallback { # {{{1
     my ($self, $period, $callback) = @_;
 
     my $cb_rec = &share({});
-    %$cb_rec = (
+    %{$cb_rec} = (
         'callback'      => $callback,
         'period'        => $period,
         'last_called'   => 0,

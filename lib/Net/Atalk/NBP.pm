@@ -58,7 +58,7 @@ sub UnpackPacket {
 # Unpack a packed set of NBP record tuples.
 sub UnpackTuples {
     my ($tuplecount, $tupledata) = @_;
-    
+
     my @tuple_data = unpack('a[3]CCC/aC/aC/a' x $tuplecount, $tupledata);
     my @tuples;
     foreach my $i (0 .. ($tuplecount - 1)) {
@@ -78,7 +78,7 @@ sub NBPLookup {
                       'Broadcast'   => 1 );
     if (defined $FromAddr) { $sockparms{'LocalAddr'} = $FromAddr }
     my $sock = IO::Socket::DDP->new(%sockparms) || croak $ERRNO;
-    croak("Can't get local socket address, possibly atalk stack out of order")
+    croak(q{Can't get local socket address, possibly atalk stack out of order})
             if not defined $sock->sockhost();
 
     # If the lookup properties are undef (or empty strings), assume
