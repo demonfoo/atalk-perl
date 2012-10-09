@@ -202,10 +202,10 @@ MAINLOOP:
             }
         } # }}}3
 
+        keys %{$shared->{'TxCB_list'}};
         # Okay, now we need to check existing outbound transactions for
         # status, resends, cleanups, etc...
-        foreach $txid (keys %{$shared->{'TxCB_list'}}) { # {{{3
-            $TxCB = $shared->{'TxCB_list'}{$txid};
+        while (($txid, $TxCB) = each %{$shared->{'TxCB_list'}}) { # {{{3
             next if (($time - $TxCB->{'stamp'}) < $TxCB->{'tmout'});
 
             # We're past the indicated timeout duration for the
@@ -236,11 +236,11 @@ MAINLOOP:
             $shared->{'conn_sem'}->up();
         } # }}}3
 
+        keys %{$shared->{'RspCB_list'}};
         # Check the XO transaction completion list as well.
-        foreach $txkey (keys %{$shared->{'RspCB_list'}}) { # {{{3
+        while (($txkey, $RspCB) = each %{$shared->{'RspCB_list'}}) { # {{{3
             # If the transaction is past its keep-by, just delete it, nothing
             # more to be done on our end.
-            $RspCB = $shared->{'RspCB_list'}{$txkey};
             delete $shared->{'RspCB_list'}{$txkey}
                     if (($time - $RspCB->{'stamp'}) >= $RspCB->{'tmout'});
         } # }}}3

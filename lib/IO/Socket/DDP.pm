@@ -6,6 +6,7 @@ use strict;
 our(@ISA, $VERSION);
 use IO::Socket;
 use Net::Atalk;
+use Net::Atalk::NBP;
 use Carp;
 use Errno qw(EINVAL ETIMEDOUT);
 
@@ -111,9 +112,19 @@ sub _error {
 }
 
 sub _get_addr {
-    my($sock,$addr_str, $multi) = @_;
+    my($sock, $addr_str, $port_str, $multi) = @_;
     my @addr;
-    atalk_aton($addr_str);
+    my $h = atalk_aton($addr_str);
+    if (defined $h) {
+        @addr = ($h);
+    }
+    else {
+        @addr = map { $_->[0] } NBPLookup($addr_str, $port_str, undef, undef);
+        if (!$multi) {
+            @addr = ($addr[0]);
+        }
+    }
+    return @addr;
 }
 
 sub configure {
@@ -151,7 +162,7 @@ sub configure {
     my @raddr = ();
 
     if(defined $raddr) {
-	@raddr = $sock->_get_addr($raddr, $arg->{MultiHomed});
+	@raddr = $sock->_get_addr($raddr, $rport, $arg->{MultiHomed});
 	return _error($sock, EINVAL, "Bad hostname '",$arg->{PeerAddr},"'")
 	    unless @raddr;
     }
