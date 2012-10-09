@@ -11,6 +11,8 @@ use strict;
 use warnings;
 use diagnostics;
 use Readonly;
+use Exporter qw(import);
+use Errno qw(ESHUTDOWN);
 
 # Enables a nice call trace on warning events.
 use Carp;
@@ -28,6 +30,27 @@ Readonly my $OP_SP_WRITECONTINUE    => 7;
 Readonly my $OP_SP_ATTENTION        => 8;
 
 Readonly my $SP_TIMEOUT             => 120;
+
+Readonly our $kASPNoError        => 0;
+Readonly our $kASPBadVersNum     => -1066;
+Readonly our $kASPBufTooSmall    => -1067;
+Readonly our $kASPNoMoreSessions => -1068;
+Readonly our $kASPNoServers      => -1069;
+Readonly our $kASPParamErr       => -1070;
+Readonly our $kASPServerBusy     => -1071;
+Readonly our $kASPSessClosed     => -1072;
+Readonly our $kASPSizeErr        => -1073;
+Readonly our $kASPTooManyClients => -1074;
+Readonly our $kASPNoAck          => -1075;
+
+my %errormap = (
+    ESHUTDOWN() => $kASPSessClosed,
+);
+
+our %EXPORT_TAGS = ('ERRORS' => [qw($kASPNoError $kASPBadVersNum
+        $kASPBufTooSmall $kASPNoMoreSessions $kASPNoServers $kASPParamErr
+        $kASPServerBusy $kASPSessClosed $kASPSizeErr $kASPTooManyClients
+        $kASPNoAck)] );
 
 sub new { # {{{1
     my ($class, $host, $port) = @_;
@@ -127,7 +150,7 @@ sub SPGetStatus { # {{{1
         'NumTries'          => 3,
         'PeerAddr'          => $sa,
     );
-    return $sem if not ref($sem);
+    return $errormap{$sem} if not ref($sem);
     $sem->down();
     if (!$success) { return $kASPNoServers; }
     ${$resp_r} = $rdata->[0][1];
@@ -151,7 +174,7 @@ sub SPOpenSession { # {{{1
         'PeerAddr'          => $sa,
         'ExactlyOnce'       => $ATP_TREL_30SEC,
     );
-    return $sem if not ref($sem);
+    return $errormap{$sem} if not ref($sem);
     $sem->down();
     if (!$success) { return $kASPNoServers; }
     my ($srv_sockno, $sessionid, $errno)    = unpack('CCn', $rdata->[0][0]);
@@ -238,7 +261,7 @@ sub SPCommand { # {{{1
         'PeerAddr'          => $sa,
         'ExactlyOnce'       => $ATP_TREL_30SEC
     );
-    return $sem if not ref($sem);
+    return $errormap{$sem} if not ref($sem);
     $sem->down();
     if (!$success) { return $kASPNoServers; }
     # string the response bodies back together
@@ -274,7 +297,7 @@ sub SPWrite { # {{{1
         'PeerAddr'          => $sa,
         'ExactlyOnce'       => $ATP_TREL_30SEC
     );
-    return $sem if not ref($sem);
+    return $errormap{$sem} if not ref($sem);
 
     if (defined $success) { # Could possibly have already failed...
         my $rcode;

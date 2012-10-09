@@ -13,18 +13,6 @@ use Readonly;
 use Carp;
 local $SIG{'__WARN__'} = \&Carp::cluck;
 
-Readonly our $kASPNoError        => 0;
-Readonly our $kASPBadVersNum     => -1066;
-Readonly our $kASPBufTooSmall    => -1067;
-Readonly our $kASPNoMoreSessions => -1068;
-Readonly our $kASPNoServers      => -1069;
-Readonly our $kASPParamErr       => -1070;
-Readonly our $kASPServerBusy     => -1071;
-Readonly our $kASPSessClosed     => -1072;
-Readonly our $kASPSizeErr        => -1073;
-Readonly our $kASPTooManyClients => -1074;
-Readonly our $kASPNoAck          => -1075;
-
 # Disabling strict refs because for the installable transaction filters
 # to work, I have to be able to have some way to deref the subroutines,
 # and we can't pass SUB refs from thread to thread.
@@ -41,6 +29,7 @@ use Thread::Semaphore;
 use Exporter qw(import);
 use Scalar::Util qw(dualvar);
 use English qw(-no_match_vars);
+use Errno qw(ESHUTDOWN);
 
 # ATP message types.
 Readonly my $ATP_TReq           => (0x1 << 6);  # Transaction request
@@ -71,9 +60,7 @@ Readonly our $ATP_MAXLEN         => 578;
 
 # symbols to export
 our @EXPORT = qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN $ATP_TREL_4MIN
-        $ATP_TREL_8MIN $ATP_MAXLEN $kASPNoError $kASPBadVersNum $kASPBufTooSmall
-        $kASPNoMoreSessions $kASPNoServers $kASPParamErr $kASPServerBusy
-        $kASPSessClosed $kASPSizeErr $kASPTooManyClients $kASPNoAck);
+        $ATP_TREL_8MIN $ATP_MAXLEN);
 
 my $atp_header :shared;
 $atp_header = 'CCCna[4]a*';
@@ -471,7 +458,7 @@ sub SendTransaction { # {{{1
             if $options{'ResponseLength'} > 8;
     croak('UserBytes block was too large')
             if length($options{'UserBytes'}) > 4;
-    return $kASPSessClosed if $self->{'Shared'}{'running'} != 1;
+    return ESHUTDOWN() if $self->{'Shared'}{'running'} != 1;
 
     # Set up the outgoing transaction request packet.
     my $ctl_byte = $ATP_TReq;
