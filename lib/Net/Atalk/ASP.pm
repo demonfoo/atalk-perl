@@ -66,11 +66,12 @@ sub new { # {{{1
 } # }}}1
 
 sub _TickleFilter { # {{{1
-    my ($realport, $lt_ref, $RqCB) = @_;
+    my ($svcport, $sessport, $lt_ref, $RqCB) = @_;
     my ($txtype)            = unpack('C', $RqCB->{'userbytes'});
     my ($portno, $paddr)    = unpack_sockaddr_at($RqCB->{'sockaddr'});
 
-    if ($txtype == $OP_SP_TICKLE && $portno == $realport) {
+    if ($txtype == $OP_SP_TICKLE &&
+            ($portno == $svcport || $portno == $sessport) {
         ${$lt_ref} = time();
         return [];
     }
@@ -212,7 +213,8 @@ sub SPOpenSession { # {{{1
         # We have to pass the fully qualified subroutine name because we can't
         # pass subroutine refs from thread to thread.
         @{$filter}          = ( __PACKAGE__ . '::_TickleFilter',
-                                $self->{'sessport'}, $lt_ref );
+                                $self->{'svcport'}, $self->{'sessport'},
+                                $lt_ref );
         $self->{'atpsess'}->AddTransactionFilter($filter);
         my $cb              = &share([]);
         @{$cb}              = ( __PACKAGE__ . '::_TickleCheck', $lt_ref );
