@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use diagnostics;
 
-use Carp ();
+use Carp;
 local $SIG{'__WARN__'} = \&Carp::cluck;
 
 use Net::Atalk::ZIP;
