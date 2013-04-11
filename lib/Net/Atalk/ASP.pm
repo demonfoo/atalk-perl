@@ -71,7 +71,7 @@ sub _TickleFilter { # {{{1
     my ($portno, $paddr)    = unpack_sockaddr_at($RqCB->{'sockaddr'});
 
     if ($txtype == $OP_SP_TICKLE &&
-            ($portno == $svcport || $portno == $sessport) {
+            ($portno == $svcport || $portno == $sessport)) {
         ${$lt_ref} = time();
         return [];
     }
