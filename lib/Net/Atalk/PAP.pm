@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use diagnostics;
 
-use Net::Atalk::ATP;
+use Net::Atalk::ATP qw(:DEFAULT :xo);
 use Net::Atalk;
 use threads::shared;
 use Readonly;
@@ -61,7 +61,7 @@ sub PAPStatus {
         'Timeout'           => 2,
         'NumTries'          => 5,
         'PeerAddr'          => $sa,
-        'ExactlyOnce'       => ATP_TREL_30SEC,
+        'ExactlyOnce'       => $ATP_TREL_30SEC,
     );
     $sem->down();
     return undef unless $success;
@@ -97,7 +97,7 @@ sub PAPOpen {
             'Timeout'           => 2,
             'NumTries'          => 5,
             'PeerAddr'          => $sa,
-            'ExactlyOnce'       => ATP_TREL_30SEC,
+            'ExactlyOnce'       => $ATP_TREL_30SEC,
     );
     $sem->down();
     unless ($success) {
@@ -160,7 +160,7 @@ sub PAPClose {
             'StatusStore'       => \$success,
             'Timeout'           => 2,
             'NumTries'          => 5,
-            'ExactlyOnce'       => ATP_TREL_30SEC,
+            'ExactlyOnce'       => $ATP_TREL_30SEC,
     );
     $sem->down();
     unless ($success) {

@@ -57,17 +57,18 @@ Readonly our $ATP_TREL_8MIN      => 0x04;
 
 # The maximum length of the ATP message body.
 Readonly our $ATP_MAXLEN         => 578;
+Readonly our $ATP_MAX_RESP_PKTS  => 8;
 
 # symbols to export
-our @EXPORT = qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN $ATP_TREL_4MIN
-        $ATP_TREL_8MIN $ATP_MAXLEN);
+our @EXPORT = qw($ATP_MAXLEN);
+our @EXPORT_OK = qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN
+                    $ATP_TREL_4MIN $ATP_TREL_8MIN);
+our %EXPORT_TAGS = ( xo => [ qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN
+                                $ATP_TREL_4MIN $ATP_TREL_8MIN) ] );
 
-my $atp_header :shared;
-$atp_header = 'CCCna[4]a*';
-my @atp_header_fields :shared;
-@atp_header_fields = qw{ddp_type ctl bmp_seq txid userbytes data};
-my %xo_timeouts :shared;
-%xo_timeouts = (
+my $atp_header :shared = 'CCCna[4]a*';
+my @atp_header_fields :shared = qw{ddp_type ctl bmp_seq txid userbytes data};
+my %xo_timeouts :shared = (
     $ATP_TREL_30SEC => 30,
     $ATP_TREL_1MIN  => 60,
     $ATP_TREL_2MIN  => 120,
@@ -189,10 +190,10 @@ MAINLOOP:
             }
         } # }}}3
 
-        keys %{$shared->{'TxCB_list'}};
         # Okay, now we need to check existing outbound transactions for
         # status, resends, cleanups, etc...
-        while (($txid, $TxCB) = each %{$shared->{'TxCB_list'}}) { # {{{3
+        foreach $txid (keys %{$shared->{'TxCB_list'}}) { # {{{3
+            $TxCB = $shared->{'TxCB_list'}{$txid};
             next if (($time - $TxCB->{'stamp'}) < $TxCB->{'tmout'});
 
             # We're past the indicated timeout duration for the
@@ -223,13 +224,14 @@ MAINLOOP:
             $shared->{'conn_sem'}->up();
         } # }}}3
 
-        keys %{$shared->{'RspCB_list'}};
         # Check the XO transaction completion list as well.
-        while (($txkey, $RspCB) = each %{$shared->{'RspCB_list'}}) { # {{{3
+        foreach $txkey (keys %{$shared->{'RspCB_list'}}) { # {{{3
             # If the transaction is past its keep-by, just delete it, nothing
             # more to be done on our end.
-            delete $shared->{'RspCB_list'}{$txkey}
-                    if (($time - $RspCB->{'stamp'}) >= $RspCB->{'tmout'});
+            $RspCB = $shared->{'RspCB_list'}{$txkey};
+            if (($time - $RspCB->{'stamp'}) >= $RspCB->{'tmout'}) {
+                delete $shared->{'RspCB_list'}{$txkey};
+            }
         } # }}}3
 
         # Check the socket for incoming packets. If there's nothing, just
@@ -455,7 +457,7 @@ sub SendTransaction { # {{{1
     croak('Data size was infeasibly large') 
             if length($options{'Data'}) > $ATP_MAXLEN;
     croak('Caller requested impossible number of response packets')
-            if $options{'ResponseLength'} > 8;
+            if $options{'ResponseLength'} > $ATP_MAX_RESP_PKTS;
     croak('UserBytes block was too large')
             if length($options{'UserBytes'}) > 4;
     return ESHUTDOWN() if $self->{'Shared'}{'running'} != 1;
@@ -465,7 +467,7 @@ sub SendTransaction { # {{{1
     if (exists $options{'ExactlyOnce'}) {
         $ctl_byte |= $ATP_CTL_XOBIT | $options{'ExactlyOnce'};
     }
-    my $seq_bmp = 0xFF >> (8 - $options{'ResponseLength'});
+    my $seq_bmp = 0xFF >> ($ATP_MAX_RESP_PKTS - $options{'ResponseLength'});
 
     my $TxCB_queue = $self->{'Shared'}{'TxCB_list'};
     my $txid;
@@ -518,7 +520,7 @@ sub GetTransaction { # {{{1
     my $RqCB_queue = $self->{'Shared'}{'RqCB_txq'};
 
     # Handle optionally blocking for a new transaction.
-    $self->{'Shared'}{'RqCB_sem'}->down() if $do_block;
+    if ($do_block) { $self->{'Shared'}{'RqCB_sem'}->down(); }
 
     foreach my $i (0 .. $#{$RqCB_queue}) {
         # If no transaction filter was passed, or the transaction filter
@@ -530,12 +532,14 @@ sub GetTransaction { # {{{1
                     ($i + 1) .. $#{$RqCB_queue}];
             # If the caller asked to block to wait, restore the semaphore
             # count to where it should be.
-            $self->{'Shared'}{'RqCB_sem'}->up($i - 1) if $do_block && $i > 0;
+            if ($do_block && $i > 0) {
+                $self->{'Shared'}{'RqCB_sem'}->up($i - 1);
+            }
             return $RqCB;
         }
         # Down the sem again, so that if we're at the last, we'll block
         # until another is enqueued.
-        $self->{'Shared'}{'RqCB_sem'}->down() if $do_block;
+        if ($do_block) { $self->{'Shared'}{'RqCB_sem'}->down(); }
     }
     # If we reach this point, the caller didn't ask to block *and* no
     # transactions matched (or none were in the waiting queue), so just
@@ -551,7 +555,8 @@ sub RespondTransaction { # {{{1
     # If the transaction response is too big/small, just abort the whole
     # mess now.
     croak('Ridiculous number of response packets supplied')
-            if scalar(@{$resp_r}) > 8 or scalar(@{$resp_r}) < 1;
+            if scalar(@{$resp_r}) > $ATP_MAX_RESP_PKTS
+                or scalar(@{$resp_r}) < 1;
 
     # Abort if the transaction ID that the caller indicated is unknown to us.
     my ($port, $paddr) = unpack_sockaddr_at($RqCB->{'sockaddr'});

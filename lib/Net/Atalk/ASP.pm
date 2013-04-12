@@ -4,7 +4,7 @@
 # to layer over TCP/IP in a similar request/response fashion to ASP.
 package Net::Atalk::ASP;
 
-use Net::Atalk::ATP;
+use Net::Atalk::ATP qw(:DEFAULT :xo);
 use Net::Atalk;         # for pack_sockaddr_at, unpack_sockaddr_at, atalk_aton
 use threads::shared;    # for share
 use strict;
