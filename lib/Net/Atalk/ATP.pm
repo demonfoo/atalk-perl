@@ -13,11 +13,6 @@ use Readonly;
 use Carp;
 local $SIG{'__WARN__'} = \&Carp::cluck;
 
-# Disabling strict refs because for the installable transaction filters
-# to work, I have to be able to have some way to deref the subroutines,
-# and we can't pass SUB refs from thread to thread.
-no strict qw(refs);
-
 use IO::Socket::DDP;
 use Net::Atalk;
 use Time::HiRes qw(gettimeofday);
@@ -58,6 +53,13 @@ Readonly our $ATP_TREL_8MIN      => 0x04;
 # The maximum length of the ATP message body.
 Readonly our $ATP_MAXLEN         => 578;
 Readonly our $ATP_MAX_RESP_PKTS  => 8;
+Readonly our $ATP_MAX_USERBYTES  => 4;
+
+Readonly my $ATP_THR_RUNNING     => 1;
+Readonly my $ATP_THR_NOT_STARTED => 0;
+Readonly my $ATP_THR_ENDED       => -1;
+Readonly my $ATP_POLL_INTERVAL   => 0.5;
+Readonly my $ATP_TXID_LIMIT      => (2 ** 16);
 
 # symbols to export
 our @EXPORT = qw($ATP_MAXLEN);
@@ -83,9 +85,9 @@ sub new { # {{{1
 
     my $shared = &share({});
     %{$shared} = (
-        'running'       => 0,
+        'running'       => $ATP_THR_NOT_STARTED,
         'exit'          => 0,
-        'last_txid'     => int(rand(2 ** 16)),
+        'last_txid'     => int(rand($ATP_TXID_LIMIT)),
         'conn_fd'       => undef,
         'conn_sem'      => Thread::Semaphore->new(0),
         'TxCB_list'     => &share({}),
@@ -101,7 +103,7 @@ sub new { # {{{1
     $obj->{'Dispatcher'}    = $thread;
     $shared->{'conn_sem'}->down();
     $obj->{'Conn'} = IO::Handle->new();
-    if ($shared->{'running'} == 1) {
+    if ($shared->{'running'} == $ATP_THR_RUNNING) {
         $obj->{'Conn'}->fdopen($shared->{'conn_fd'}, 'w');
     }
     else {
@@ -112,7 +114,7 @@ sub new { # {{{1
     if (exists $shared->{'errno'}) {
         $ERRNO = dualvar $shared->{'errno'}, $shared->{'error'};
     }
-    return($shared->{'running'} == 1 ? $obj : undef);
+    return($shared->{'running'} == $ATP_THR_RUNNING ? $obj : undef);
 } # }}}1
 
 sub close { # {{{1
@@ -152,13 +154,13 @@ sub thread_core { # {{{1
                          %sockopts );
     my $conn = IO::Socket::DDP->new(%connect_args);
     if (!$conn || !$conn->sockaddr()) {
-        $shared->{'running'}    = -1;
+        $shared->{'running'}    = $ATP_THR_ENDED;
         $shared->{'error'}      = $ERRNO;
         $shared->{'errno'}      = int($ERRNO);
         $shared->{'conn_sem'}->up();
         return;
     }
-    $shared->{'running'}    = 1;
+    $shared->{'running'}    = $ATP_THR_RUNNING;
 
     $shared->{'conn_fd'}    = fileno($conn);
     $shared->{'sockaddr'}   = $conn->sockaddr();
@@ -184,6 +186,7 @@ MAINLOOP:
         # Check for any timed callbacks.
         foreach my $rec (@{$shared->{'TimedCBs'}}) { # {{{3
             if (($rec->{'last_called'} + $rec->{'period'}) < $time) {
+                no strict qw(refs);
                 $cb = $rec->{'callback'};
                 &{$cb->[0]}(@{$cb}[1 .. $#{$cb}], $time, $shared);
                 $rec->{'last_called'} = $time;
@@ -194,7 +197,7 @@ MAINLOOP:
         # status, resends, cleanups, etc...
         foreach $txid (keys %{$shared->{'TxCB_list'}}) { # {{{3
             $TxCB = $shared->{'TxCB_list'}{$txid};
-            next if (($time - $TxCB->{'stamp'}) < $TxCB->{'tmout'});
+            if (($time - $TxCB->{'stamp'}) < $TxCB->{'tmout'}) { next; }
 
             # We're past the indicated timeout duration for the
             # transaction, so now we have to decide its fate.
@@ -236,19 +239,19 @@ MAINLOOP:
 
         # Check the socket for incoming packets. If there's nothing, just
         # loop again.
-        next MAINLOOP if not $poll->poll(0.5);
+        if (not $poll->poll($ATP_POLL_INTERVAL)) { next MAINLOOP; }
 
         # We've got something. Read in a potential packet. We know it's
         # never going to be larger than $DDP_MAXSZ.
         $shared->{'conn_sem'}->down();
         $from = recv($conn, $msg, $DDP_MAXSZ, 0);
         $shared->{'conn_sem'}->up();
-        next MAINLOOP if not defined $from;
+        if (not defined $from) { next MAINLOOP; }
 
         # Unpack the packet into its constituent fields, and quietly
         # move on if its DDP type field is wrong.
         @msgdata{@atp_header_fields} = unpack($atp_header, $msg);
-        next MAINLOOP if $msgdata{'ddp_type'} != $DDPTYPE_ATP;
+        if ($msgdata{'ddp_type'} != $DDPTYPE_ATP) { next MAINLOOP; }
 
         # Let's see what kind of message we've been sent.
         $msgtype = $msgdata{'ctl'} & $ATP_CTL_FNCODE;
@@ -267,7 +270,7 @@ MAINLOOP:
             $xo_tmout   = $msgdata{'ctl'} & $ATP_CTL_TREL_TMOUT;
 
             # Ignore a duplicate transaction request.
-            next MAINLOOP if exists $shared->{'RqCB_list'}{$txkey};
+            if (exists $shared->{'RqCB_list'}{$txkey}) { next MAINLOOP; }
 
             # If there's an XO completion handler in place, then resend
             # whatever packets the peer indicates it wants.
@@ -279,7 +282,7 @@ MAINLOOP:
                 foreach my $seq (0 .. $#{$pktdata}) {
                     # Check if the sequence mask bit corresponding to
                     # the sequence number is set.
-                    next if not $RqCB->{'seq_bmp'} & (1 << $seq);
+                    if (not $RqCB->{'seq_bmp'} & (1 << $seq)) { next; }
 
                     $shared->{'conn_sem'}->down();
                     send($conn, $pktdata->[$seq], 0, $RqCB->{'sockaddr'});
@@ -305,11 +308,12 @@ MAINLOOP:
             # transaction filter handlers before putting it on the
             # list for outside processing.
             foreach my $filter (@{$shared->{'RqFilters'}}) { # {{{4
+                no strict qw(refs);
                 $rv = &{$filter->[0]}(@{$filter}[1 .. $#{$filter}], $RqCB);
                 # If the filter returned something other than undef,
                 # it is (well, should be) an array ref containing
                 # ATP user byte and payload blocks.
-                next if not $rv;
+                if (not $rv) { next; }
                 $pktdata = &share([]);
                 foreach my $seq (0 .. $#{$rv}) {
                     $item = $rv->[$seq];
@@ -321,7 +325,7 @@ MAINLOOP:
                             $seq, $txid, @{$item}{'userbytes', 'data'});
                     $pktdata->[$seq] = $msg;
 
-                    next if not $RqCB->{'seq_bmp'} & (1 << $seq);
+                    if (not $RqCB->{'seq_bmp'} & (1 << $seq)) { next; }
 
                     # Okay, let's try registering the RspCB just
                     # before the last packet posts to the server...
@@ -353,7 +357,7 @@ MAINLOOP:
             # Ignore a transaction response to a transaction that we don't
             # know, either because we didn't initiate it, or because we
             # tried it enough times and gave up.
-            next MAINLOOP if not exists $shared->{'TxCB_list'}{$txid};
+            if (not exists $shared->{'TxCB_list'}{$txid}) { next MAINLOOP; }
 
             # Get the transaction block, and grab a few bits of info
             # out of it to keep them at hand.
@@ -364,11 +368,13 @@ MAINLOOP:
 
             # If the server says this packet is the end of the transaction
             # set, mask off any higher bits in the sequence bitmap.
-            if ($is_eom) { $TxCB->{'seq_bmp'} &= 0xFF >> (7 - $seqno) }
+            if ($is_eom) {
+                $TxCB->{'seq_bmp'} &= 0xFF >> ($ATP_MAX_RESP_PKTS - 1 - $seqno);
+            }
 
             # If the sequence bit for this packet is already cleared,
             # just quietly move on.
-            next MAINLOOP if not $TxCB->{'seq_bmp'} & (1 << $seqno);
+            if (not $TxCB->{'seq_bmp'} & (1 << $seqno)) { next MAINLOOP; }
 
             # Put data into the array of stored payloads.
             $TxCB->{'response'}[$seqno] = &share([]);
@@ -417,7 +423,7 @@ MAINLOOP:
             delete $shared->{'RspCB_list'}{$txkey};
         } # }}}3
     } # }}}2
-    $shared->{'running'} = -1;
+    $shared->{'running'} = $ATP_THR_ENDED;
     # If we reach this point, we're exiting the thread. Notify any pending
     # waiting calls that they've failed before we go away.
     foreach $TxCB (values %{$shared->{'TxCB_list'}}) {
@@ -459,8 +465,8 @@ sub SendTransaction { # {{{1
     croak('Caller requested impossible number of response packets')
             if $options{'ResponseLength'} > $ATP_MAX_RESP_PKTS;
     croak('UserBytes block was too large')
-            if length($options{'UserBytes'}) > 4;
-    return ESHUTDOWN() if $self->{'Shared'}{'running'} != 1;
+            if length($options{'UserBytes'}) > $ATP_MAX_USERBYTES;
+    return ESHUTDOWN() if $self->{'Shared'}{'running'} != $ATP_THR_RUNNING;
 
     # Set up the outgoing transaction request packet.
     my $ctl_byte = $ATP_TReq;
@@ -474,7 +480,7 @@ sub SendTransaction { # {{{1
     # Okay, have to handle potential transaction ID collisions due to
     # wrapping...
     do {
-        $txid = ++$self->{'Shared'}{'last_txid'} % (2 ** 16);
+        $txid = ++$self->{'Shared'}{'last_txid'} % $ATP_TXID_LIMIT;
     } while (exists $TxCB_queue->{$txid});
 
     my $msg = pack($atp_header, $DDPTYPE_ATP, $ctl_byte, $seq_bmp, $txid,
@@ -516,6 +522,7 @@ sub SendTransaction { # {{{1
 sub GetTransaction { # {{{1
     my ($self, $do_block, $filter) = @_;
 
+    no strict qw(refs);
     # Get the ref for the queue of incoming transactions.
     my $RqCB_queue = $self->{'Shared'}{'RqCB_txq'};
 
