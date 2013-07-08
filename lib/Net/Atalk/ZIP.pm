@@ -6,7 +6,7 @@ use diagnostics;
 
 # Enables a nice call trace on warning events.
 use Carp;
-local $SIG{'__WARN__'} = \&Carp::cluck;
+local $SIG{__WARN__} = \&Carp::cluck;
 
 use IO::Socket::DDP;
 use Net::Atalk;
@@ -39,8 +39,8 @@ sub ZIPQuery {
     my $port = getservbyname('zip', 'ddp') || 6;
     # Bind a local, broadcast-capable socket for sending out ZIP
     # packets from (and receiving responses).
-    my %sockparms = ( 'Proto'       => 'ddp',
-                      'Broadcast'   => 1 );
+    my %sockparms = ( Proto     => 'ddp',
+                      Broadcast => 1 );
     my $sock = IO::Socket::DDP->new(%sockparms) || croak $ERRNO;
     croak("Can't get local socket address, possibly atalk stack out of order")
             if not defined $sock->sockhost();
@@ -75,7 +75,7 @@ sub ZIPQuery {
 sub ZIPGetZoneList {
     my ($FromAddr, $StartIndex) = @_;
     my %sockopts;
-    if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
+    if ($FromAddr) { $sockopts{LocalAddr} = $FromAddr }
     my $conn = Net::Atalk::ATP->new(%sockopts);
     return if not defined $conn;
 
@@ -86,13 +86,13 @@ sub ZIPGetZoneList {
     my $rdata;
     my $success;
     my $sem = $conn->SendTransaction(
-        'UserBytes'         => $user_bytes,
-        'ResponseLength'    => 1,
-        'ResponseStore'     => \$rdata,
-        'StatusStore'       => \$success,
-        'Timeout'           => 2,
-        'NumTries'          => 5,
-        'PeerAddr'          => $dest,
+        UserBytes       => $user_bytes,
+        ResponseLength  => 1,
+        ResponseStore   => \$rdata,
+        StatusStore     => \$success,
+        Timeout         => 2,
+        NumTries        => 5,
+        PeerAddr        => $dest,
     );
     # block on the semaphore until the thread tells us we're done
     $sem->down();
@@ -109,7 +109,7 @@ sub ZIPGetZoneList {
 sub ZIPGetLocalZones {
     my ($FromAddr, $StartIndex) = @_;
     my %sockopts;
-    if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
+    if ($FromAddr) { $sockopts{LocalAddr} = $FromAddr }
     my $conn = Net::Atalk::ATP->new(%sockopts);
     return if not defined $conn;
 
@@ -120,13 +120,13 @@ sub ZIPGetLocalZones {
     my $rdata;
     my $success;
     my $sem = $conn->SendTransaction(
-        'UserBytes'         => $user_bytes,
-        'ResponseLength'    => 1,
-        'ResponseStore'     => \$rdata,
-        'StatusStore'       => \$success,
-        'Timeout'           => 2,
-        'NumTries'          => 5,
-        'PeerAddr'          => $dest,
+        UserBytes       => $user_bytes,
+        ResponseLength  => 1,
+        ResponseStore   => \$rdata,
+        StatusStore     => \$success,
+        Timeout         => 2,
+        NumTries        => 5,
+        PeerAddr        => $dest,
     );
     # block on the semaphore until the thread tells us we're done
     $sem->down();
@@ -143,7 +143,7 @@ sub ZIPGetLocalZones {
 sub ZIPGetMyZone {
     my ($FromAddr) = @_;
     my %sockopts;
-    if ($FromAddr) { $sockopts{'LocalAddr'} = $FromAddr }
+    if ($FromAddr) { $sockopts{LocalAddr} = $FromAddr }
     my $conn = Net::Atalk::ATP->new(%sockopts);
     return if not defined $conn;
 
@@ -154,13 +154,13 @@ sub ZIPGetMyZone {
     my $rdata;
     my $success;
     my $sem = $conn->SendTransaction(
-        'UserBytes'         => $user_bytes,
-        'ResponseLength'    => 1,
-        'ResponseStore'     => \$rdata,
-        'StatusStore'       => \$success,
-        'Timeout'           => 2,
-        'NumTries'          => 5,
-        'PeerAddr'          => $dest,
+        UserBytes       => $user_bytes,
+        ResponseLength  => 1,
+        ResponseStore   => \$rdata,
+        StatusStore     => \$success,
+        Timeout         => 2,
+        NumTries        => 5,
+        PeerAddr        => $dest,
     );
     # block on the semaphore until the thread tells us we're done
     $sem->down();
@@ -181,8 +181,8 @@ sub ZIPGetNetInfo {
     my $port = getservbyname('zip', 'ddp') || 6;
     # Bind a local, broadcast-capable socket for sending out ZIP
     # packets from (and receiving responses).
-    my %sockparms = ( 'Proto'       => 'ddp',
-                      'Broadcast'   => 1 );
+    my %sockparms = ( Proto     => 'ddp',
+                      Broadcast => 1 );
     my $sock = IO::Socket::DDP->new(%sockparms) || croak $ERRNO;
     croak("Can't get local socket address, possibly atalk stack out of order")
             if not defined $sock->sockhost();
@@ -203,14 +203,14 @@ sub ZIPGetNetInfo {
     my (%zoneinfo, $extra, $flags);
     ($flags, @zoneinfo{'NetNum_start', 'NetNum_end', 'zonename', 'mcastaddr'},
             $extra) = unpack('xxCnnC/a*C/a*a*', $rbuf);
-    $zoneinfo{'mcastaddr'} = join(q{:},
-            unpack('H[2]' x 6, $zoneinfo{'mcastaddr'}));
+    $zoneinfo{mcastaddr} = join(q{:},
+            unpack('H[2]' x 6, $zoneinfo{mcastaddr}));
     if ($flags & $ZIP_GNI_ZoneInvalid) {
-        ($zoneinfo{'default_zonename'}) = unpack('C/a*', $extra);
+        ($zoneinfo{default_zonename}) = unpack('C/a*', $extra);
     }
-    $zoneinfo{'ZoneInvalid'} = ($flags & $ZIP_GNI_ZoneInvalid) ? 1 : 0;
-    $zoneinfo{'UseBroadcast'} = ($flags & $ZIP_GNI_UseBroadcast) ? 1 : 0;
-    $zoneinfo{'OnlyOneZone'} = ($flags & $ZIP_GNI_OnlyOneZone) ? 1 : 0;
+    $zoneinfo{ZoneInvalid}  = ($flags & $ZIP_GNI_ZoneInvalid) ? 1 : 0;
+    $zoneinfo{UseBroadcast} = ($flags & $ZIP_GNI_UseBroadcast) ? 1 : 0;
+    $zoneinfo{OnlyOneZone}  = ($flags & $ZIP_GNI_OnlyOneZone) ? 1 : 0;
 
     return { %zoneinfo };
 }

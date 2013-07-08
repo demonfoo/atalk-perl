@@ -29,19 +29,19 @@ sub new {
     my ($class, $host, $port, %options) = @_;
 
     my $obj = bless {}, $class;
-    $obj->{'atpsess'} = new Net::Atalk::ATP();
-    return undef unless defined $obj->{'atpsess'};
-    $obj->{'host'} = $host;
-    $obj->{'svcport'} = $port;
-    $obj->{'connid'} = 0;
-    $obj->{'fquantum'} = 255;
+    $obj->{atpsess} = new Net::Atalk::ATP();
+    return undef unless defined $obj->{atpsess};
+    $obj->{host} = $host;
+    $obj->{svcport} = $port;
+    $obj->{connid} = 0;
+    $obj->{fquantum} = 255;
 
     return $obj;
 }
 
 sub close {
     my ($self) = @_;
-    $self->{'atpsess'}->close();
+    $self->{atpsess}->close();
 }
 
 sub PAPStatus {
@@ -52,16 +52,16 @@ sub PAPStatus {
 
     my ($rdata, $success);
     my $msg = pack('xCx[2]', $PAP_SendStatus);
-    my $sa = pack_sockaddr_at($self->{'svcport'} , atalk_aton($self->{'host'}));
-    my $sem = $self->{'atpsess'}->SendTransaction(
-        'UserBytes'         => $msg,
-        'ResponseLength'    => 1,
-        'ResponseStore'     => \$rdata,
-        'StatusStore'       => \$success,
-        'Timeout'           => 2,
-        'NumTries'          => 5,
-        'PeerAddr'          => $sa,
-        'ExactlyOnce'       => $ATP_TREL_30SEC,
+    my $sa = pack_sockaddr_at($self->{svcport} , atalk_aton($self->{host}));
+    my $sem = $self->{atpsess}->SendTransaction(
+        UserBytes       => $msg,
+        ResponseLength  => 1,
+        ResponseStore   => \$rdata,
+        StatusStore     => \$success,
+        Timeout         => 2,
+        NumTries        => 5,
+        PeerAddr        => $sa,
+        ExactlyOnce     => $ATP_TREL_30SEC,
     );
     $sem->down();
     return undef unless $success;
@@ -79,25 +79,25 @@ sub PAPOpen {
             unless ref($resp_r) eq 'SCALAR' or ref($resp_r) eq 'REF';
 
     die('Response socket already exists - PAP session already open')
-            if exists $self->{'rsock'};
+            if exists $self->{rsock};
 
-    my $ub = pack('CCx[2]', ++$self->{'connid'}, $PAP_OpenConn);
+    my $ub = pack('CCx[2]', ++$self->{connid}, $PAP_OpenConn);
     my $rsock = new Net::Atalk::ATP(
-            'PeerAddr'  => $self->{'host'},
-            'PeerPort'  => $self->{'svcport'} );
-    my $data = pack('CCn', $rsock->sockport(), $self->{'fquantum'}, $waittime);
-    my $sa = pack_sockaddr_at($self->{'svcport'} , atalk_aton($self->{'host'}));
+            PeerAddr    => $self->{host},
+            PeerPort    => $self->{svcport} );
+    my $data = pack('CCn', $rsock->sockport(), $self->{fquantum}, $waittime);
+    my $sa = pack_sockaddr_at($self->{svcport} , atalk_aton($self->{host}));
 
     my($rdata, $success);
-    my $sem = $self->{'atpsess'}->SendTransaction(
-            'UserBytes'         => $ub,
-            'ResponseLength'    => 1,
-            'ResponseStore'     => \$rdata,
-            'StatusStore'       => \$success,
-            'Timeout'           => 2,
-            'NumTries'          => 5,
-            'PeerAddr'          => $sa,
-            'ExactlyOnce'       => $ATP_TREL_30SEC,
+    my $sem = $self->{atpsess}->SendTransaction(
+            UserBytes       => $ub,
+            ResponseLength  => 1,
+            ResponseStore   => \$rdata,
+            StatusStore     => \$success,
+            Timeout         => 2,
+            NumTries        => 5,
+            PeerAddr        => $sa,
+            ExactlyOnce     => $ATP_TREL_30SEC,
     );
     $sem->down();
     unless ($success) {
@@ -110,7 +110,7 @@ sub PAPOpen {
         $rsock->close();
         return $rcode;
     }
-    $self->{'rsock'} = $rsock;
+    $self->{rsock} = $rsock;
     return $rcode;
 }
 
@@ -124,23 +124,23 @@ sub PAPSendData {
     my($resp, $elem);
 
     die('Response socket does not exist - PAP session not open')
-            unless exists $self->{'rsock'};
+            unless exists $self->{rsock};
 
     while ($pos < $len) {
-        my $RqCB = $self->{'rsock'}->GetTransaction(1, sub {
-                my ($connid, $fnid, $seqno) = unpack('CCn', $_[0]{'userbytes'});
-                return ($connid == $self->{'connid'} && $fnid == $PAP_SendData);
+        my $RqCB = $self->{rsock}->GetTransaction(1, sub {
+                my ($connid, $fnid, $seqno) = unpack('CCn', $_[0]{userbytes});
+                return ($connid == $self->{connid} && $fnid == $PAP_SendData);
             });
 
-        my ($seqno) = unpack('xxn', $RqCB->{'userbytes'});
+        my ($seqno) = unpack('xxn', $RqCB->{userbytes});
 
         $resp = &share([]);
         $elem = &share({});
-        %$elem = ( 'userbytes'  => pack('CCCx', $self->{'connid'}, $PAP_Data,
+        %$elem = ( userbytes    => pack('CCCx', $self->{connid}, $PAP_Data,
                                         $len - $pos <= $chunksize),
-                   'data'       => substr($data, $pos, $chunksize) );
+                   data         => substr($data, $pos, $chunksize) );
 
-        $self->{'rsock'}->RespondTransaction($RqCB, $resp);
+        $self->{rsock}->RespondTransaction($RqCB, $resp);
         $pos += $chunksize;
     }
 }
@@ -149,18 +149,18 @@ sub PAPClose {
     my ($self) = @_;
 
     die('Response socket does not exist - PAP session not open')
-            unless exists $self->{'rsock'};
+            unless exists $self->{rsock};
 
-    my $ub = pack('CCx[2]', $self->{'connid'}, $PAP_CloseConn);
+    my $ub = pack('CCx[2]', $self->{connid}, $PAP_CloseConn);
     my($rdata, $success);
-    my $sem = $self->{'rsock'}->SendTransaction(
-            'UserBytes'         => $ub,
-            'ResponseLength'    => 1,
-            'ResponseStore'     => \$rdata,
-            'StatusStore'       => \$success,
-            'Timeout'           => 2,
-            'NumTries'          => 5,
-            'ExactlyOnce'       => $ATP_TREL_30SEC,
+    my $sem = $self->{rsock}->SendTransaction(
+            UserBytes       => $ub,
+            ResponseLength  => 1,
+            ResponseStore   => \$rdata,
+            StatusStore     => \$success,
+            Timeout         => 2,
+            NumTries        => 5,
+            ExactlyOnce     => $ATP_TREL_30SEC,
     );
     $sem->down();
     unless ($success) {

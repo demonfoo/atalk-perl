@@ -16,12 +16,12 @@ sub usage {
 my $printer_name;
 my %sockparms;
 GetOptions( 'p=s'   => \$printer_name,
-            'A=s'   => sub { $sockparms{'LocalAddr'} = $_[1] },
+            'A=s'   => sub { $sockparms{LocalAddr} = $_[1] },
             'h'     => \&usage );
 
 usage() unless defined $printer_name;
 
-my @tuples = NBPLookup($printer_name, 'LaserWriter', undef, exists $sockparms{'LocalAddr'} ? $sockparms{'LocalAddr'} : undef, 1);
+my @tuples = NBPLookup($printer_name, 'LaserWriter', undef, exists $sockparms{LocalAddr} ? $sockparms{LocalAddr} : undef, 1);
 unless (scalar(@tuples)) {
     printf(STDERR "Can't resolve \"\%s\"\n", $printer_name);
     exit(1);

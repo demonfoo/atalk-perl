@@ -15,10 +15,10 @@ $VERSION = "0.50";
 
 IO::Socket::DDP->register_domain( AF_APPLETALK );
 
-my %socket_type = ( 'ddp' => SOCK_DGRAM );
+my %socket_type = ( ddp => SOCK_DGRAM );
 my %proto_number;
-$proto_number{'ddp'}  = 37;
-my %proto_name = reverse %proto_number;
+$proto_number{ddp}  = 37;
+my %proto_name      = reverse %proto_number;
 
 sub new {
     my $class = shift;
@@ -217,12 +217,12 @@ sub configure {
 	return _error($sock, EINVAL, "Bad hostname '",$arg->{PeerAddr},"'")
 	    unless defined $raddr;
 
-#        my $timeout = ${*$sock}{'io_socket_timeout'};
+#        my $timeout = ${*$sock}{io_socket_timeout};
 #        my $before = time() if $timeout;
 
 	undef $@;
         if ($sock->connect(pack_sockaddr_at($rport, $raddr))) {
-#            ${*$sock}{'io_socket_timeout'} = $timeout;
+#            ${*$sock}{io_socket_timeout} = $timeout;
             return $sock;
         }
 
@@ -232,7 +232,7 @@ sub configure {
 #	if ($timeout) {
 #	    my $new_timeout = $timeout - (time() - $before);
 #	    return _error($sock, ETIMEDOUT, 'Timeout') if $new_timeout <= 0;
-#	    ${*$sock}{'io_socket_timeout'} = $new_timeout;
+#	    ${*$sock}{io_socket_timeout} = $new_timeout;
 #        }
 
     }

@@ -13,7 +13,7 @@ use diagnostics;
 
 # Enables a nice call trace on warning events.
 use Carp;
-local $SIG{'__WARN__'} = \&Carp::cluck;
+local $SIG{__WARN__} = \&Carp::cluck;
 
 use Exporter qw(import);
 
@@ -74,9 +74,9 @@ sub NBPLookup {
 
     # Bind a local, broadcast-capable socket for sending out NBP
     # packets from (and receiving responses).
-    my %sockparms = ( 'Proto'       => 'ddp',
-                      'Broadcast'   => 1 );
-    if (defined $FromAddr) { $sockparms{'LocalAddr'} = $FromAddr }
+    my %sockparms = ( Proto     => 'ddp',
+                      Broadcast => 1 );
+    if (defined $FromAddr) { $sockparms{LocalAddr} = $FromAddr }
     my $sock = IO::Socket::DDP->new(%sockparms) || croak $ERRNO;
     croak(q{Can't get local socket address, possibly atalk stack out of order})
             if not defined $sock->sockhost();

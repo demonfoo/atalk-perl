@@ -5,7 +5,7 @@ use warnings;
 use diagnostics;
 
 use Carp;
-local $SIG{'__WARN__'} = \&Carp::cluck;
+local $SIG{__WARN__} = \&Carp::cluck;
 
 use Net::Atalk::ZIP;
 use Getopt::Long;
@@ -37,9 +37,9 @@ if (ref($zonelist) eq 'ARRAY') {
     foreach my $zone (@{$zonelist}) {
         if ($verbose) {
             my $zoneinfo = ZIPGetNetInfo($zone);
-            print "Zone name:\t\t", $zoneinfo->{'zonename'}, "\n";
-            print "Network number range:\t", $zoneinfo->{'NetNum_start'}, ' - ', $zoneinfo->{'NetNum_end'}, "\n";
-            print "Multicast address:\t", $zoneinfo->{'mcastaddr'}, "\n";
+            print "Zone name:\t\t", $zoneinfo->{zonename}, "\n";
+            print "Network number range:\t", $zoneinfo->{NetNum_start}, ' - ', $zoneinfo->{NetNum_end}, "\n";
+            print "Multicast address:\t", $zoneinfo->{mcastaddr}, "\n";
             print "\n";
         }
         else {

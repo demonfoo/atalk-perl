@@ -17,7 +17,7 @@ Readonly my $AEPOP_REQUEST  => 1;
 Readonly my $AEPOP_REPLY    => 2;
 
 use Carp;
-local $SIG{'__WARN__'} = \&Carp::cluck;
+local $SIG{__WARN__} = \&Carp::cluck;
 
 my $port = getservbyname('echo', 'ddp') || 4;
 
@@ -29,17 +29,17 @@ my $print_stamp;
 my $quiet;
 my $timing;
 my $datalen     = 32;
-my %sockparms   = ('Proto' => 'ddp');
+my %sockparms   = (Proto => 'ddp');
 my $audible;
 
 Getopt::Long::Configure('no_ignore_case');
 GetOptions( 'c=i'   => \$count,
-            'I=s'   => sub { $sockparms{'LocalAddr'} = $_[1] },
+            'I=s'   => sub { $sockparms{LocalAddr} = $_[1] },
             'i=f'   => \$interval,
             'q'     => \$quiet,
             'D'     => \$print_stamp,
             's=i'   => \$datalen,
-            'b'     => sub { $sockparms{'Broadcast'} = 1 },
+            'b'     => sub { $sockparms{Broadcast} = 1 },
             'a'     => \$audible,
             'h'     => \&usage ) || usage();
 
@@ -62,7 +62,7 @@ if (!defined $paddr) {
     $target =~ s/(?::([\w\s\-]*|=))?(?:\@(\w*|\*))?$//;
     my ($type, $zone) = ($1, $2);
     my @tuples = NBPLookup($target, $type, $zone,
-            exists $sockparms{'LocalAddr'} ? $sockparms{'LocalAddr'} : undef,
+            exists $sockparms{LocalAddr} ? $sockparms{LocalAddr} : undef,
             1);
     if (!scalar(@tuples)) {
         printf {*STDERR} "Can't resolve \"\%s\"\n", $target;
@@ -96,7 +96,7 @@ sub send_echo {
     my $msg = pack('CCL!a*', $DDPTYPE_AEP, $AEPOP_REQUEST, $sent++, $trailer);
     croak("send() failed: $ERRNO") if not defined send($sock, $msg, 0, $dest);
     if ($count && $sent > $count) { finish() }
-    $SIG{'ALRM'} = \&send_echo;
+    $SIG{ALRM} = \&send_echo;
     return;
 }
 
@@ -122,13 +122,13 @@ sub status {
                 $msec_total / ($rcvd + $dups), $msec_max if $timing;
         print {*STDERR} "\n";
     }
-    $SIG{'QUIT'} = \&status;
+    $SIG{QUIT} = \&status;
     return;
 }
 
-$SIG{'INT'}     = \&finish;
-$SIG{'ALRM'}    = \&send_echo;
-$SIG{'QUIT'}    = \&status;
+$SIG{INT}   = \&finish;
+$SIG{ALRM}  = \&send_echo;
+$SIG{QUIT}  = \&status;
 
 setitimer(ITIMER_REAL, $interval, $interval);
 
