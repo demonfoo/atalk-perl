@@ -85,7 +85,7 @@ sub new { # {{{1
 
     my $shared = &share({});
     %{$shared} = (
-        running       => $ATP_THR_NOT_STARTED,
+        running     => $ATP_THR_NOT_STARTED,
         exit        => 0,
         last_txid   => int(rand($ATP_TXID_LIMIT)),
         conn_fd     => undef,
