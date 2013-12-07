@@ -119,7 +119,7 @@ RETRY:
             next RETRY if not $poll->poll($timeout);
             my ($e_sec, $e_usec) = gettimeofday();
             # Compute how long it took us to poll the socket.
-            $timeout -= ($e_sec - $s_sec) + (($e_usec - $s_usec) / 1000000);
+            $timeout -= ($e_sec - $s_sec) + (($e_usec - $s_usec) / 1_000_000);
 
             # Read in the packet on the socket.
             my $rbuf;
