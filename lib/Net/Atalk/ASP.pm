@@ -90,7 +90,7 @@ sub _TickleCheck { # {{{1
 
 sub _AttnFilter { # {{{1
     my ($sid, $attnq_r, $realport, $RqCB) = @_;
-    my ($txtype, $sessid, $attncode) = unpack('CCn', $RqCB->{userbytes});
+    my ($txtype, $sessid, $attncode) = unpack('CCS>', $RqCB->{userbytes});
     my ($portno, $paddr)             = unpack_sockaddr_at($RqCB->{sockaddr});
 
     if ($txtype == $OP_SP_ATTENTION && $sessid == $sid
@@ -162,7 +162,7 @@ sub SPOpenSession { # {{{1
     my ($self) = @_;
 
     my $wss = $self->{atpsess}->sockport();
-    my $msg = pack('CCn', $OP_SP_OPENSESS, $wss, $SP_VERSION);
+    my $msg = pack('CCS>', $OP_SP_OPENSESS, $wss, $SP_VERSION);
     my $sa  = pack_sockaddr_at($self->{svcport}, atalk_aton($self->{host}));
     my ($rdata, $success);
     my $sem = $self->{atpsess}->SendTransaction(
@@ -178,10 +178,10 @@ sub SPOpenSession { # {{{1
     return $errormap{$sem} if not ref($sem);
     $sem->down();
     if (!$success) { return $kASPNoServers; }
-    my ($srv_sockno, $sessionid, $errno)    = unpack('CCn', $rdata->[0][0]);
+    my ($srv_sockno, $sessionid, $errno)    = unpack('CCS>', $rdata->[0][0]);
     @{$self}{'sessport', 'sessionid'}       = ($srv_sockno, $sessionid);
     $self->{seqno}                          = 0;
-    $errno                                  = unpack('s', pack('S', $errno));
+    #$errno                                  = unpack('s', pack('S', $errno));
     if ($errno == $kASPNoError) { # {{{2
         # This will cause the client code to send an SPTickle, and resend
         # it every 30 seconds, forever. The server never actually sends
@@ -250,7 +250,7 @@ sub SPCommand { # {{{1
     my $seqno = $self->{seqno}++ % (2 ** 16);
     # this will take an ATP_MSGLEN sized chunk of the message data and
     # send it to the server, to be processed as part of the request.
-    my $ub = pack('CCn', $OP_SP_COMMAND, $self->{sessionid}, $seqno);
+    my $ub = pack('CCS>', $OP_SP_COMMAND, $self->{sessionid}, $seqno);
     my $sa = pack_sockaddr_at($self->{sessport}, atalk_aton($self->{host}));
     my ($rdata, $success);
     my $sem = $self->{atpsess}->SendTransaction(
@@ -286,7 +286,7 @@ sub SPWrite { # {{{1
     my $seqno = $self->{seqno}++ % (2 ** 16);
     # this will take an ATP_MSGLEN sized chunk of the message data and
     # send it to the server, to be processed as part of the request.
-    my $ub = pack('CCn', $OP_SP_WRITE, $self->{sessionid}, $seqno);
+    my $ub = pack('CCS>', $OP_SP_WRITE, $self->{sessionid}, $seqno);
     my $sa = pack_sockaddr_at($self->{sessport} , atalk_aton($self->{host}));
     my ($rdata, $success);
     my $sem = $self->{atpsess}->SendTransaction(
@@ -313,14 +313,15 @@ sub SPWrite { # {{{1
 
     # Try getting an SPWriteContinue transaction request from the server
     my $RqCB = $self->{atpsess}->GetTransaction(1, sub {
-        my ($txtype, $sessid, $pseq) = unpack('CCn', $_[0]{userbytes});
+        my ($txtype, $sessid, $pseq) = unpack('CCS>', $_[0]{userbytes});
         my ($portno, $paddr) = unpack_sockaddr_at($_[0]{sockaddr});
 
         return($txtype == $OP_SP_WRITECONTINUE &&
                 $sessid == $self->{sessionid} && $seqno == $pseq &&
                 $portno == $self->{sessport});
     } );
-    my $bufsz = unpack('n', $RqCB->{data});
+    if (!$RqCB) { return $kASPSessClosed; }
+    my $bufsz = unpack('S>', $RqCB->{data});
 
     my $resp = &share([]);
 
