@@ -327,7 +327,7 @@ sub SPWrite { # {{{1
 
     my $sendsz = 0;
     my $t_send = 0;
-    foreach my $i (0 .. 7) { # {{{2
+    foreach my $i (0 .. ($Net::Atalk::ATP::ATP_MAX_RESP_PKTS - 1)) { # {{{2
         last if $t_send >= $d_len;
         $sendsz = $ATP_MAXLEN;
         if ($bufsz - $t_send < $ATP_MAXLEN) {
