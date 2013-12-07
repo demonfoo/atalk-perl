@@ -10,7 +10,7 @@ use Net::Atalk::NBP;
 use Carp;
 use Errno qw(EINVAL ETIMEDOUT);
 
-@ISA = qw(IO::Socket);
+use base qw(IO::Socket);
 $VERSION = "0.50";
 
 IO::Socket::DDP->register_domain( AF_APPLETALK );
@@ -36,11 +36,11 @@ sub _cache_proto {
 
 sub _get_proto_number {
     my $name = lc(shift);
-    return undef unless defined $name;
+    return unless defined $name;
     return $proto_number{$name} if exists $proto_number{$name};
 
     my @proto = getprotobyname($name);
-    return undef unless @proto;
+    return unless @proto;
     _cache_proto(@proto);
 
     return $proto[2];
@@ -48,11 +48,11 @@ sub _get_proto_number {
 
 sub _get_proto_name {
     my $num = shift;
-    return undef unless defined $num;
+    return unless defined $num;
     return $proto_name{$num} if exists $proto_name{$num};
 
     my @proto = getprotobynumber($num);
-    return undef unless @proto;
+    return unless @proto;
     _cache_proto(@proto);
 
     return $proto[0];
@@ -108,7 +108,7 @@ sub _error {
 	if(defined fileno($sock));
     }
     $! = $err;
-    return undef;
+    return;
 }
 
 sub _get_addr {
@@ -237,7 +237,7 @@ sub configure {
 
     }
 
-    $sock;
+    return $sock;
 }
 
 sub connect {
@@ -258,42 +258,42 @@ sub sockaddr {
     @_ == 1 or croak 'usage: $sock->sockaddr()';
     my($sock) = @_;
     my $name = $sock->sockname;
-    $name ? (unpack_sockaddr_at($name))[1] : undef;
+    return($name ? (unpack_sockaddr_at($name))[1] : undef);
 }
 
 sub sockport {
     @_ == 1 or croak 'usage: $sock->sockport()';
     my($sock) = @_;
     my $name = $sock->sockname;
-    $name ? (unpack_sockaddr_at($name))[0] : undef;
+    return($name ? (unpack_sockaddr_at($name))[0] : undef);
 }
 
 sub sockhost {
     @_ == 1 or croak 'usage: $sock->sockhost()';
     my($sock) = @_;
     my $addr = $sock->sockaddr;
-    $addr ? atalk_ntoa($addr) : undef;
+    return($addr ? atalk_ntoa($addr) : undef);
 }
 
 sub peeraddr {
     @_ == 1 or croak 'usage: $sock->peeraddr()';
     my($sock) = @_;
     my $name = $sock->peername;
-    $name ? (unpack_sockaddr_at($name))[1] : undef;
+    return($name ? (unpack_sockaddr_at($name))[1] : undef);
 }
 
 sub peerport {
     @_ == 1 or croak 'usage: $sock->peerport()';
     my($sock) = @_;
     my $name = $sock->peername;
-    $name ? (unpack_sockaddr_at($name))[0] : undef;
+    return($name ? (unpack_sockaddr_at($name))[0] : undef);
 }
 
 sub peerhost {
     @_ == 1 or croak 'usage: $sock->peerhost()';
     my($sock) = @_;
     my $addr = $sock->peeraddr;
-    $addr ? atalk_ntoa($addr) : undef;
+    return($addr ? atalk_ntoa($addr) : undef);
 }
 
 1;
