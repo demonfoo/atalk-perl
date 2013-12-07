@@ -31,17 +31,17 @@ Readonly my $OP_SP_ATTENTION        => 8;
 
 Readonly my $SP_TIMEOUT             => 120;
 
-Readonly our $kASPNoError        => 0;
-Readonly our $kASPBadVersNum     => -1066;
-Readonly our $kASPBufTooSmall    => -1067;
-Readonly our $kASPNoMoreSessions => -1068;
-Readonly our $kASPNoServers      => -1069;
-Readonly our $kASPParamErr       => -1070;
-Readonly our $kASPServerBusy     => -1071;
-Readonly our $kASPSessClosed     => -1072;
-Readonly our $kASPSizeErr        => -1073;
-Readonly our $kASPTooManyClients => -1074;
-Readonly our $kASPNoAck          => -1075;
+Readonly our $kASPNoError           => 0;
+Readonly our $kASPBadVersNum        => -1066;
+Readonly our $kASPBufTooSmall       => -1067;
+Readonly our $kASPNoMoreSessions    => -1068;
+Readonly our $kASPNoServers         => -1069;
+Readonly our $kASPParamErr          => -1070;
+Readonly our $kASPServerBusy        => -1071;
+Readonly our $kASPSessClosed        => -1072;
+Readonly our $kASPSizeErr           => -1073;
+Readonly our $kASPTooManyClients    => -1074;
+Readonly our $kASPNoAck             => -1075;
 
 my %errormap = (
     ESHUTDOWN() => $kASPSessClosed,
@@ -248,7 +248,7 @@ sub SPCommand { # {{{1
     $resp_r = defined($resp_r) ? $resp_r : *foo{SCALAR};
 
     my $seqno = $self->{seqno}++ % (2 ** 16);
-    # this will take an ATP_MSGLEN sized chunk of the message data and
+    # this will take an ATP_MAXLEN sized chunk of the message data and
     # send it to the server, to be processed as part of the request.
     my $ub = pack('CCS>', $OP_SP_COMMAND, $self->{sessionid}, $seqno);
     my $sa = pack_sockaddr_at($self->{sessport}, atalk_aton($self->{host}));
@@ -284,7 +284,7 @@ sub SPWrite { # {{{1
     $d_len ||= length(${$data_r});
 
     my $seqno = $self->{seqno}++ % (2 ** 16);
-    # this will take an ATP_MSGLEN sized chunk of the message data and
+    # this will take an ATP_MAXLEN sized chunk of the message data and
     # send it to the server, to be processed as part of the request.
     my $ub = pack('CCS>', $OP_SP_WRITE, $self->{sessionid}, $seqno);
     my $sa = pack_sockaddr_at($self->{sessport} , atalk_aton($self->{host}));
@@ -327,7 +327,7 @@ sub SPWrite { # {{{1
 
     my $sendsz = 0;
     my $t_send = 0;
-    foreach my $i (0 .. ($ATP_MAX_RESP_PKTS - 1)) { # {{{2
+    foreach my $i (1 .. $ATP_MAX_RESP_PKTS) { # {{{2
         last if $t_send >= $d_len;
         $sendsz = $ATP_MAXLEN;
         if ($bufsz - $t_send < $ATP_MAXLEN) {
