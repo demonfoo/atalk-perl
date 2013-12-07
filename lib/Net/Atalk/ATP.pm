@@ -62,7 +62,7 @@ Readonly my $ATP_POLL_INTERVAL   => 0.5;
 Readonly my $ATP_TXID_LIMIT      => (2 ** 16);
 
 # symbols to export
-our @EXPORT = qw($ATP_MAXLEN);
+our @EXPORT = qw($ATP_MAXLEN $ATP_MAX_RESP_PKTS);
 our @EXPORT_OK = qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN
                     $ATP_TREL_4MIN $ATP_TREL_8MIN);
 our %EXPORT_TAGS = ( xo => [ qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN

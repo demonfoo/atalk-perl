@@ -127,7 +127,7 @@ sub SPGetParms { # {{{1
 
     ${$resp_r} = {
                    MaxCmdSize   => $ATP_MAXLEN,
-                   QuantumSize  => $ATP_MAXLEN * 8,
+                   QuantumSize  => $ATP_MAXLEN * $ATP_MAX_RESP_PKTS,
                  };
 
     return $kASPNoError;
@@ -256,7 +256,7 @@ sub SPCommand { # {{{1
     my $sem = $self->{atpsess}->SendTransaction(
         UserBytes       => $ub,
         Data            => $message,
-        ResponseLength  => 8,
+        ResponseLength  => $ATP_MAX_RESP_PKTS,
         ResponseStore   => \$rdata,
         StatusStore     => \$success,
         Timeout         => 5,
@@ -327,7 +327,7 @@ sub SPWrite { # {{{1
 
     my $sendsz = 0;
     my $t_send = 0;
-    foreach my $i (0 .. ($Net::Atalk::ATP::ATP_MAX_RESP_PKTS - 1)) { # {{{2
+    foreach my $i (0 .. ($ATP_MAX_RESP_PKTS - 1)) { # {{{2
         last if $t_send >= $d_len;
         $sendsz = $ATP_MAXLEN;
         if ($bufsz - $t_send < $ATP_MAXLEN) {
