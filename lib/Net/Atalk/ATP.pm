@@ -317,6 +317,7 @@ MAINLOOP:
                 $pktdata = &share([]);
                 foreach my $seq (0 .. $#{$rv}) {
                     $item = $rv->[$seq];
+                    # Start borrowed code from RespondTransaction().
                     $ctl_byte = $ATP_TResp;
                     # last packet in provided set, so tell the
                     # requester that this is end of message...
@@ -343,6 +344,7 @@ MAINLOOP:
                     $shared->{conn_sem}->down();
                     send($conn, $msg, 0, $RqCB->{sockaddr});
                     $shared->{conn_sem}->up();
+                    # End borrowed code from RespondTransaction().
                 }
                 next MAINLOOP;
             } # }}}4
@@ -584,7 +586,7 @@ sub RespondTransaction { # {{{1
                 $RqCB->{txid}, @{$resp_r->[$seq]}{'userbytes', 'data'});
         $pktdata->[$seq] = $msg;
 
-        next if not $RqCB->{seq_bmp} & (1 << $seq);
+        if (not $RqCB->{seq_bmp} & (1 << $seq)) { next; }
 
         # Okay, let's try registering the RspCB just before the last packet
         # posts to the server...
