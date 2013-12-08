@@ -68,7 +68,7 @@ our @EXPORT_OK = qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN
 our %EXPORT_TAGS = ( xo => [ qw($ATP_TREL_30SEC $ATP_TREL_1MIN $ATP_TREL_2MIN
                                 $ATP_TREL_4MIN $ATP_TREL_8MIN) ] );
 
-my $atp_header :shared = 'CCCna[4]a*';
+my $atp_header :shared = 'CCCS>a[4]a*';
 my @atp_header_fields :shared = qw{ddp_type ctl bmp_seq txid userbytes data};
 my %xo_timeouts :shared = (
     $ATP_TREL_30SEC => 30,
