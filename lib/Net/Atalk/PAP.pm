@@ -8,6 +8,7 @@ use Net::Atalk::ATP qw(:DEFAULT :xo);
 use Net::Atalk;
 use threads::shared;
 use Readonly;
+use Carp;
 
 Readonly my $PAP_OpenConn           => 1;
 Readonly my $PAP_OpenConnReply      => 2;
@@ -30,7 +31,7 @@ sub new {
 
     my $obj = bless {}, $class;
     $obj->{atpsess} = new Net::Atalk::ATP();
-    return undef unless defined $obj->{atpsess};
+    return unless defined $obj->{atpsess};
     $obj->{host} = $host;
     $obj->{svcport} = $port;
     $obj->{connid} = 0;
@@ -42,12 +43,13 @@ sub new {
 sub close {
     my ($self) = @_;
     $self->{atpsess}->close();
+    return;
 }
 
 sub PAPStatus {
     my ($self, $resp_r) = @_;
 
-    die('$resp_r must be a scalar ref')
+    croak('$resp_r must be a scalar ref')
             unless ref($resp_r) eq 'SCALAR' or ref($resp_r) eq 'REF';
 
     my ($rdata, $success);
@@ -64,21 +66,21 @@ sub PAPStatus {
         ExactlyOnce     => $ATP_TREL_30SEC,
     );
     $sem->down();
-    return undef unless $success;
+    return if not $success;
     my ($opid) = unpack('xCx[2]', $rdata->[0][0]);
-    return undef unless $opid == $PAP_Status;
+    return if $opid != $PAP_Status;
     my ($message) = unpack('x[4]a*', $rdata->[0][1]);
-    $$resp_r = $message;
+    ${$resp_r} = $message;
     return 1;
 }
 
 sub PAPOpen {
     my ($self, $waittime, $resp_r) = @_;
 
-    die('$resp_r must be a scalar ref')
+    croak('$resp_r must be a scalar ref')
             unless ref($resp_r) eq 'SCALAR' or ref($resp_r) eq 'REF';
 
-    die('Response socket already exists - PAP session already open')
+    croak('Response socket already exists - PAP session already open')
             if exists $self->{rsock};
 
     my $ub = pack('CCx[2]', ++$self->{connid}, $PAP_OpenConn);
@@ -100,12 +102,12 @@ sub PAPOpen {
             ExactlyOnce     => $ATP_TREL_30SEC,
     );
     $sem->down();
-    unless ($success) {
+    if (!$success) {
         $rsock->close();
-        return undef;
+        return;
     }
     my ($rcode, $errstr) = unpack('xxnC/a', $rdata->[0][1]);
-    $$resp_r = $errstr;
+    ${$resp_r} = $errstr;
     if ($rcode != $PAP_NoError) {
         $rsock->close();
         return $rcode;
@@ -123,7 +125,7 @@ sub PAPSendData {
     my $chunksize = 512;
     my($resp, $elem);
 
-    die('Response socket does not exist - PAP session not open')
+    croak('Response socket does not exist - PAP session not open')
             unless exists $self->{rsock};
 
     while ($pos < $len) {
@@ -136,19 +138,20 @@ sub PAPSendData {
 
         $resp = &share([]);
         $elem = &share({});
-        %$elem = ( userbytes    => pack('CCCx', $self->{connid}, $PAP_Data,
+        %{$elem} = ( userbytes  => pack('CCCx', $self->{connid}, $PAP_Data,
                                         $len - $pos <= $chunksize),
-                   data         => substr($data, $pos, $chunksize) );
+                     data       => substr($data, $pos, $chunksize) );
 
         $self->{rsock}->RespondTransaction($RqCB, $resp);
         $pos += $chunksize;
     }
+    return;
 }
 
 sub PAPClose {
     my ($self) = @_;
 
-    die('Response socket does not exist - PAP session not open')
+    croak('Response socket does not exist - PAP session not open')
             unless exists $self->{rsock};
 
     my $ub = pack('CCx[2]', $self->{connid}, $PAP_CloseConn);
@@ -163,9 +166,7 @@ sub PAPClose {
             ExactlyOnce     => $ATP_TREL_30SEC,
     );
     $sem->down();
-    unless ($success) {
-        return undef;
-    }
+    return if not $success;
     return 0;
 
 }
