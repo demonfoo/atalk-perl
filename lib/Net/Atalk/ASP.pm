@@ -61,6 +61,7 @@ sub new { # {{{1
     $obj->{host}        = $host;
     $obj->{svcport}     = $port;
     $obj->{last_tickle} = undef;
+    $obj->{Shared}      = &share({});
 
     return $obj;
 } # }}}1
@@ -121,8 +122,9 @@ sub close { # {{{1
     return;
 } # }}}1
 
+sub SPGetParms { return GetParms(@_); }
 # Apparently this just returns these fixed values always...
-sub SPGetParms { # {{{1
+sub GetParms { # {{{1
     my ($self, $resp_r) = @_;
 
     ${$resp_r} = {
@@ -133,7 +135,8 @@ sub SPGetParms { # {{{1
     return $kASPNoError;
 } # }}}1
 
-sub SPGetStatus { # {{{1
+sub SPGetStatus { return GetStatus(@_); }
+sub GetStatus { # {{{1
     my ($self, $resp_r) = @_;
 
     croak('$resp_r must be a scalar ref')
@@ -158,7 +161,8 @@ sub SPGetStatus { # {{{1
     return $kASPNoError;
 } # }}}1
 
-sub SPOpenSession { # {{{1
+sub SPOpenSession { return OpenSession(@_); }
+sub OpenSession { # {{{1
     my ($self) = @_;
 
     my $wss = $self->{atpsess}->sockport();
@@ -181,7 +185,6 @@ sub SPOpenSession { # {{{1
     my ($srv_sockno, $sessionid, $errno)    = unpack('CCS>', $rdata->[0][0]);
     @{$self}{'sessport', 'sessionid'}       = ($srv_sockno, $sessionid);
     $self->{seqno}                          = 0;
-    #$errno                                  = unpack('s', pack('S', $errno));
     if ($errno == $kASPNoError) { # {{{2
         # This will cause the client code to send an SPTickle, and resend
         # it every 30 seconds, forever. The server never actually sends
@@ -191,11 +194,12 @@ sub SPOpenSession { # {{{1
         $self->SPTickle(30, -1);
 
         # Handle incoming Attention requests.
-        $self->{attnq}  = &share([]);
-        my $filter      = &share([]);
-        @{$filter}      = ( __PACKAGE__ . '::_AttnFilter',
-                            $self->{sessionid}, $self->{attnq},
-                            $self->{sessport} );
+        my $shared       = $self->{Shared};
+        $shared->{attnq} = &share([]);
+        my $filter       = &share([]);
+        @{$filter}       = ( __PACKAGE__ . '::_AttnFilter',
+                             $self->{sessionid}, $shared->{attnq},
+                             $self->{sessport} );
         $self->{atpsess}->AddTransactionFilter($filter);
         # Handle CloseSession requests from the server.
         $filter         = &share([]);
@@ -220,10 +224,16 @@ sub SPOpenSession { # {{{1
         @{$cb}          = ( __PACKAGE__ . '::_TickleCheck', $lt_ref );
         $self->{atpsess}->AddPeriodicCallback(5, $cb);
     } # }}}2
-    return $errno;
+    my %params = $self->SPGetParms();
+    my %opts = (
+                 RequestQuanta   => $params{QuantumSize},
+                 AttentionQuanta => $params{QuantumSize},
+               );
+    return wantarray ? ($errno, %opts) : $errno;
 } # }}}1
 
-sub SPCloseSession { # {{{1
+sub SPCloseSession { return CloseSession(@_); }
+sub CloseSession { # {{{1
     my ($self) = @_;
 
     my $msg = pack('CCx[2]', $OP_SP_CLOSESESS, $self->{sessionid});
@@ -242,7 +252,8 @@ sub SPCloseSession { # {{{1
     return $kASPNoError;
 } # }}}1
 
-sub SPCommand { # {{{1
+sub SPCommand { return Command(@_); }
+sub Command { # {{{1
     my ($self, $message, $resp_r) = @_;
 
     $resp_r = defined($resp_r) ? $resp_r : *foo{SCALAR};
@@ -274,7 +285,8 @@ sub SPCommand { # {{{1
     return $errno;
 } # }}}1
 
-sub SPWrite { # {{{1
+sub SPWrite { return Write(@_); }
+sub Write { # {{{1
     my ($self, $message, $data_r, $d_len, $resp_r) = @_;
 
     croak('$resp_r must be a scalar ref')
