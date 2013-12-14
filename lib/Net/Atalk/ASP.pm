@@ -224,10 +224,11 @@ sub OpenSession { # {{{1
         @{$cb}          = ( __PACKAGE__ . '::_TickleCheck', $lt_ref );
         $self->{atpsess}->AddPeriodicCallback(5, $cb);
     } # }}}2
-    my %params = $self->SPGetParms();
+    my $params;
+    $self->GetParms(\$params);
     my %opts = (
-                 RequestQuanta   => $params{QuantumSize},
-                 AttentionQuanta => $params{QuantumSize},
+                 RequestQuanta   => $params->{QuantumSize},
+                 AttentionQuanta => $params->{QuantumSize},
                );
     return wantarray ? ($errno, %opts) : $errno;
 } # }}}1
