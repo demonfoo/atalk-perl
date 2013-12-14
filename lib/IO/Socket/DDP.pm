@@ -3,15 +3,16 @@
 package IO::Socket::DDP;
 
 use strict;
-our(@ISA, $VERSION);
+use warnings;
 use IO::Socket;
 use Net::Atalk;
 use Net::Atalk::NBP;
 use Carp;
 use Errno qw(EINVAL ETIMEDOUT);
+use English qw(-no_match_vars);
 
 use base qw(IO::Socket);
-$VERSION = "0.50";
+our $VERSION = '0.50';
 
 IO::Socket::DDP->register_domain( AF_APPLETALK );
 
@@ -22,16 +23,17 @@ my %proto_name      = reverse %proto_number;
 
 sub new {
     my $class = shift;
-    unshift(@_, "PeerAddr") if @_ == 1;
+    unshift(@_, 'PeerAddr') if scalar(@_) == 1;
     return $class->SUPER::new(@_);
 }
 
 sub _cache_proto {
     my @proto = @_;
-    for (map lc($_), $proto[0], split(' ', $proto[1])) {
-	$proto_number{$_} = $proto[2];
+    for (map { lc($_) } $proto[0], split(q{ }, $proto[1])) {
+        $proto_number{$_} = $proto[2];
     }
     $proto_name{$proto[2]} = $proto[0];
+    return;
 }
 
 sub _get_proto_number {
@@ -59,55 +61,53 @@ sub _get_proto_name {
 }
 
 sub _sock_info {
-  my($addr,$port,$proto) = @_;
-  my $origport = $port;
-  my @serv = ();
+    my($addr,$port,$proto) = @_;
+    my $origport = $port;
+    my @serv = ();
 
-  $port = $1
-	if(defined $addr && $addr =~ s,:([\w\(\)/]+)$,,);
+    $port = $1 if(defined $addr && $addr =~ s{:([\w()/]+)$}{});
 
-  if(defined $proto  && $proto =~ /\D/) {
-    my $num = _get_proto_number($proto);
-    unless (defined $num) {
-      $@ = "Bad protocol '$proto'";
-      return;
-    }
-    $proto = $num;
-  }
-
-  if(defined $port) {
-    my $defport = ($port =~ s,\((\d+)\)$,,) ? $1 : undef;
-    my $pnum = ($port =~ m,^(\d+)$,)[0];
-
-    @serv = getservbyname($port, _get_proto_name($proto) || "")
-	if ($port =~ m,\D,);
-
-    $port = $serv[2] || $defport || $pnum;
-    unless (defined $port) {
-	$@ = "Bad service '$origport'";
-	return;
+    if(defined $proto  && $proto =~ /\D/) {
+        my $num = _get_proto_number($proto);
+        if (not defined $num) {
+            $EVAL_ERROR = "Bad protocol '$proto'";
+            return;
+        }
+        $proto = $num;
     }
 
-    $proto = _get_proto_number($serv[3]) if @serv && !$proto;
-  }
+    if(defined $port) {
+        my $defport = ($port =~ s{[(](\d+)[)]$}{}) ? $1 : undef;
+        my $pnum = ($port =~ m{^(\d+)$})[0];
 
- return ($addr || undef,
-	 $port || undef,
-	 $proto || undef
-	);
+        @serv = getservbyname($port, _get_proto_name($proto) || q{})
+            if ($port =~ m{\D});
+
+        $port = $serv[2] || $defport || $pnum;
+        if (not defined $port) {
+            $EVAL_ERROR = "Bad service '$origport'";
+            return;
+        }
+
+        $proto = _get_proto_number($serv[3]) if @serv && !$proto;
+    }
+
+    return ($addr || undef,
+            $port || undef,
+            $proto || undef
+           );
 }
 
 sub _error {
     my $sock = shift;
     my $err = shift;
     {
-      local($!);
-      my $title = ref($sock).": ";
-      $@ = join("", $_[0] =~ /^$title/ ? "" : $title, @_);
-      $sock->close()
-	if(defined fileno($sock));
+        local($ERRNO);
+        my $title = ref($sock) . q{: };
+        $EVAL_ERROR = join(q{}, $_[0] =~ /^$title/ ? q{} : $title, @_);
+        $sock->close() if defined fileno($sock);
     }
-    $! = $err;
+    $ERRNO = $err;
     return;
 }
 
@@ -132,27 +132,27 @@ sub configure {
     my($lport,$rport,$laddr,$raddr,$proto,$type);
 
     $arg->{LocalAddr} = $arg->{LocalHost}
-	if exists $arg->{LocalHost} && !exists $arg->{LocalAddr};
+        if exists $arg->{LocalHost} && !exists $arg->{LocalAddr};
 
     ($laddr,$lport,$proto) = _sock_info($arg->{LocalAddr},
-					$arg->{LocalPort},
-					$arg->{Proto})
-			or return _error($sock, $!, $@);
+                                        $arg->{LocalPort},
+                                        $arg->{Proto})
+                        or return _error($sock, $ERRNO, $EVAL_ERROR);
 
     $laddr = defined $laddr ? atalk_aton($laddr)
-			    : $ATADDR_ANY;
+                            : $ATADDR_ANY;
 
-    return _error($sock, EINVAL, "Bad hostname '",$arg->{LocalAddr},"'")
-	unless(defined $laddr);
+    return _error($sock, EINVAL, q{Bad hostname '},$arg->{LocalAddr},q{'})
+        unless(defined $laddr);
 
     $arg->{PeerAddr} = $arg->{PeerHost}
-	if exists $arg->{PeerHost} && !exists $arg->{PeerAddr};
+        if exists $arg->{PeerHost} && !exists $arg->{PeerAddr};
 
-    unless(exists $arg->{Listen}) {
-	($raddr,$rport,$proto) = _sock_info($arg->{PeerAddr},
-					    $arg->{PeerPort},
-					    $proto)
-			or return _error($sock, $!, $@);
+    if (not exists $arg->{Listen}) {
+        ($raddr,$rport,$proto) = _sock_info($arg->{PeerAddr},
+                                            $arg->{PeerPort},
+                                            $proto)
+                        or return _error($sock, $ERRNO, $EVAL_ERROR);
     }
 
     $proto ||= _get_proto_number('ddp');
@@ -162,50 +162,50 @@ sub configure {
     my @raddr = ();
 
     if(defined $raddr) {
-	@raddr = $sock->_get_addr($raddr, $rport, $arg->{MultiHomed});
-	return _error($sock, EINVAL, "Bad hostname '",$arg->{PeerAddr},"'")
-	    unless @raddr;
+        @raddr = $sock->_get_addr($raddr, $rport, $arg->{MultiHomed});
+        return _error($sock, EINVAL, q{Bad hostname '},$arg->{PeerAddr},q{'})
+            unless @raddr;
     }
 
     while(1) {
 
-	$sock->socket(AF_APPLETALK, $type, 0) or
-	    return _error($sock, $!, "$!");
+        $sock->socket(AF_APPLETALK, $type, 0) or
+            return _error($sock, $ERRNO, "$ERRNO");
 
         if (defined $arg->{Blocking}) {
-	    defined $sock->blocking($arg->{Blocking})
-		or return _error($sock, $!, "$!");
-	}
+            defined $sock->blocking($arg->{Blocking})
+                or return _error($sock, $ERRNO, "$ERRNO");
+        }
 
-	if ($arg->{Reuse} || $arg->{ReuseAddr}) {
-	    $sock->sockopt(SO_REUSEADDR,1) or
-		    return _error($sock, $!, "$!");
-	}
+        if ($arg->{Reuse} || $arg->{ReuseAddr}) {
+            $sock->sockopt(SO_REUSEADDR,1) or
+                    return _error($sock, $ERRNO, "$ERRNO");
+        }
 
-	if ($arg->{ReusePort}) {
-	    $sock->sockopt(SO_REUSEPORT,1) or
-		    return _error($sock, $!, "$!");
-	}
+        if ($arg->{ReusePort}) {
+            $sock->sockopt(SO_REUSEPORT,1) or
+                    return _error($sock, $ERRNO, "$ERRNO");
+        }
 
 	if ($arg->{Broadcast}) {
 		$sock->sockopt(SO_BROADCAST,1) or
-		    return _error($sock, $!, "$!");
+		    return _error($sock, $ERRNO, "$ERRNO");
 	}
 
-	if($lport || exists $arg->{Listen} || $^O ne 'linux') {
+	if($lport || exists $arg->{Listen} || $OSNAME ne 'linux') {
 	    $sock->bind($lport || 0, $laddr) or
-		    return _error($sock, $!, "$!");
+		    return _error($sock, $ERRNO, "$ERRNO");
 	}
 
 	if(exists $arg->{Listen}) {
 	    $sock->listen($arg->{Listen} || 5) or
-		return _error($sock, $!, "$!");
+		return _error($sock, $ERRNO, "$ERRNO");
 	    last;
 	}
 
  	# don't try to connect unless we're given a PeerAddr
  	last unless exists($arg->{PeerAddr});
- 
+
         $raddr = shift @raddr;
 
 	return _error($sock, EINVAL, 'Cannot determine remote port')
@@ -214,19 +214,19 @@ sub configure {
 	last
 	    unless($type == SOCK_STREAM || defined $raddr);
 
-	return _error($sock, EINVAL, "Bad hostname '",$arg->{PeerAddr},"'")
+	return _error($sock, EINVAL, q{Bad hostname '},$arg->{PeerAddr},q{'})
 	    unless defined $raddr;
 
 #        my $timeout = ${*$sock}{io_socket_timeout};
 #        my $before = time() if $timeout;
 
-	undef $@;
-        if ($sock->connect(pack_sockaddr_at($rport, $raddr))) {
+	undef $EVAL_ERROR;
+    if ($sock->connect(pack_sockaddr_at($rport, $raddr))) {
 #            ${*$sock}{io_socket_timeout} = $timeout;
-            return $sock;
-        }
+        return $sock;
+    }
 
-	return _error($sock, $!, $@ || 'Timeout')
+	return _error($sock, $ERRNO, $EVAL_ERROR || 'Timeout')
 	    unless @raddr;
 
 #	if ($timeout) {
@@ -241,56 +241,56 @@ sub configure {
 }
 
 sub connect {
-    @_ == 2 || @_ == 3 or
+    scalar(@_) == 2 or scalar(@_) == 3 or
        croak 'usage: $sock->connect(NAME) or $sock->connect(PORT, ADDR)';
     my $sock = shift;
-    return $sock->SUPER::connect(@_ == 1 ? shift : pack_sockaddr_at(@_));
+    return $sock->SUPER::connect(scalar(@_) == 1 ? shift : pack_sockaddr_at(@_));
 }
 
 sub bind {
-    @_ == 2 || @_ == 3 or
+    scalar(@_) == 2 or scalar(@_) == 3 or
        croak 'usage: $sock->bind(NAME) or $sock->bind(PORT, ADDR)';
     my $sock = shift;
-    return $sock->SUPER::bind(@_ == 1 ? shift : pack_sockaddr_at(@_))
+    return $sock->SUPER::bind(scalar(@_) == 1 ? shift : pack_sockaddr_at(@_))
 }
 
 sub sockaddr {
-    @_ == 1 or croak 'usage: $sock->sockaddr()';
+    scalar(@_) == 1 or croak 'usage: $sock->sockaddr()';
     my($sock) = @_;
     my $name = $sock->sockname;
     return($name ? (unpack_sockaddr_at($name))[1] : undef);
 }
 
 sub sockport {
-    @_ == 1 or croak 'usage: $sock->sockport()';
+    scalar(@_) == 1 or croak 'usage: $sock->sockport()';
     my($sock) = @_;
     my $name = $sock->sockname;
     return($name ? (unpack_sockaddr_at($name))[0] : undef);
 }
 
 sub sockhost {
-    @_ == 1 or croak 'usage: $sock->sockhost()';
+    scalar(@_) == 1 or croak 'usage: $sock->sockhost()';
     my($sock) = @_;
     my $addr = $sock->sockaddr;
     return($addr ? atalk_ntoa($addr) : undef);
 }
 
 sub peeraddr {
-    @_ == 1 or croak 'usage: $sock->peeraddr()';
+    scalar(@_) == 1 or croak 'usage: $sock->peeraddr()';
     my($sock) = @_;
     my $name = $sock->peername;
     return($name ? (unpack_sockaddr_at($name))[1] : undef);
 }
 
 sub peerport {
-    @_ == 1 or croak 'usage: $sock->peerport()';
+    scalar(@_) == 1 or croak 'usage: $sock->peerport()';
     my($sock) = @_;
     my $name = $sock->peername;
     return($name ? (unpack_sockaddr_at($name))[0] : undef);
 }
 
 sub peerhost {
-    @_ == 1 or croak 'usage: $sock->peerhost()';
+    scalar(@_) == 1 or croak 'usage: $sock->peerhost()';
     my($sock) = @_;
     my $addr = $sock->peeraddr;
     return($addr ? atalk_ntoa($addr) : undef);
