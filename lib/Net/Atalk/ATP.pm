@@ -400,7 +400,7 @@ MAINLOOP:
                 $shared->{conn_sem}->down();
                 # Don't need to send the whole packet, just the type, ATP
                 # control fields, and user bytes...
-                send($conn, $TxCB->{msg}, 0, substr($TxCB->{target}, 0, 9));
+                send($conn, substr($TxCB->{msg}, 0, 9), 0, $TxCB->{target});
                 $shared->{conn_sem}->up();
                 next MAINLOOP;
             } # }}}4
