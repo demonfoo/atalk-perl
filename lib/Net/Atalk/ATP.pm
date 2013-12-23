@@ -398,7 +398,9 @@ MAINLOOP:
                 # Don't need to preserve the XO bits.
                 substr($TxCB->{msg}, 1, 1, pack('C', $ATP_TRel));
                 $shared->{conn_sem}->down();
-                send($conn, $TxCB->{msg}, 0, $TxCB->{target});
+                # Don't need to send the whole packet, just the type, ATP
+                # control fields, and user bytes...
+                send($conn, $TxCB->{msg}, 0, substr($TxCB->{target}, 0, 9));
                 $shared->{conn_sem}->up();
                 next MAINLOOP;
             } # }}}4
