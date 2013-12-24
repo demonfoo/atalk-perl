@@ -31,9 +31,9 @@ and DDP port number.
 
 Discontinue an active ASP session.
 
-=item SPGetParms (RESP_R)
+=item GetParms (RESP_R)
 
-The C<SPGetParms> call retrieves the maximum values of the command block
+The C<GetParms> call retrieves the maximum values of the command block
 size and the quantum size.
 
 RESP_R must be a scalar ref which will contain a hash ref with the size
@@ -51,35 +51,35 @@ The maximum size for a command reply or a write.
 
 =back
 
-=item SPGetStatus (RESP_R)
+=item GetStatus (RESP_R)
 
-The C<SPGetStatus> call is used by a workstation ASP client to obtain
+The C<GetStatus> call is used by a workstation ASP client to obtain
 status information for a particular server.
 
 RESP_R must be a scalar ref which will contain a hash ref with the
-parsed structure data from the SPGetStatus call.
+parsed structure data from the GetStatus call.
 
-=item SPOpenSession
+=item OpenSession
 
-The C<SPOpenSession> call is issued by an ASP client after obtaining the
+The C<OpenSession> call is issued by an ASP client after obtaining the
 internet address of the SLS (server listening socket) through an NBPLookup
 call. If a session is successfully opened, then a session reference
 number is returned and stored in the session object, to be used for
 all subsequent calls in this session. If a session cannot be opened,
 an appropriate SPError value is returned.
 
-=item SPCloseSession
+=item CloseSession
 
-The C<SPCloseSession> call can be issued at any time by the ASP client to
-close a session previously opened through an C<SPOpenSession> call. As a
+The C<CloseSession> call can be issued at any time by the ASP client to
+close a session previously opened through an C<OpenSession> call. As a
 result of the call, the session reference number is invalidated and
 cannot be used for any further calls. In addition, all pending activity
 on the session is immediately canceled.
 
-=item SPCommand (MESSAGE, RESP_R)
+=item Command (MESSAGE, RESP_R)
 
 Once a session has been opened, the workstation end client can send a
-command to the server end by issuing an C<SPCommand> call to ASP. A
+command to the server end by issuing an C<Command> call to ASP. A
 command block of maximum size (L<MaxCmdSize>) can be sent with the
 command. If the length of MESSAGE is greater than the maximum allowable
 size, the call returns an error of kASPSizeErr; in this case, no effort
@@ -89,9 +89,9 @@ MESSAGE contains the binary data for the outgoing request. RESP_R must
 be a scalar ref that will contain the reassembled response data, if any,
 received from the server in response to the request sent.
 
-=item SPWrite (MESSAGE, DATA_R, D_LEN, RESP_R)
+=item Write (MESSAGE, DATA_R, D_LEN, RESP_R)
 
-The C<SPWrite> call is made by the ASP client in order to write a block
+The C<Write> call is made by the ASP client in order to write a block
 of data to the server end of the session. The call first delivers the
 command block (no larger than L<MaxCmdSize>) to the server end client
 of the ASP session and, as previously described, the server end can
@@ -103,7 +103,7 @@ length of the data chunk provided and will never be larger than
 L<QuantumSize>. The amount of write data actually transferred is
 returned in the response block.
 
-In response to an C<SPWrite>, the server end returns two quantities:
+In response to an C<Write>, the server end returns two quantities:
 a 4-byte command result code and a variable-length command reply
 that is returned in the reply buffer. Note that this reply can be
 no larger than L<QuantumSize>.
