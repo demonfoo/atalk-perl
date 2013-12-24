@@ -17,7 +17,7 @@ over the datagram socket interface of DDP.
 
 =over
 
-=item ATP_TREL_30SEC
+=item $ATP_TREL_30SEC
 
 For XO (exactly-once) transactions, this constant is used to tell the
 server to maintain transactional state for 30 seconds after initial
@@ -26,34 +26,39 @@ fulfillment of the request.
 If the server implements AppleTalk Phase1, this is always the case for
 XO transactions.
 
-=item ATP_TREL_1MIN
+=item $ATP_TREL_1MIN
 
 For XO (exactly-once) transactions, this constant is used to tell the
 server to maintain transactional state for 1 minute after initial
 fulfillment of the request.
 
-=item ATP_TREL_2MIN
+=item $ATP_TREL_2MIN
 
 For XO (exactly-once) transactions, this constant is used to tell the
 server to maintain transactional state for 2 minutes after initial
 fulfillment of the request.
 
-=item ATP_TREL_4MIN
+=item $ATP_TREL_4MIN
 
 For XO (exactly-once) transactions, this constant is used to tell the
 server to maintain transactional state for 4 minutes after initial
 fulfillment of the request.
 
-=item ATP_TREL_8MIN
+=item $ATP_TREL_8MIN
 
 For XO (exactly-once) transactions, this constant is used to tell the
 server to maintain transactional state for 8 minutes after initial
 fulfillment of the request.
 
-=item ATP_MAXLEN
+=item $ATP_MAXLEN
 
 The maximum length of a single ATP message payload. Transaction responses
 may consist of up to 8 individual response packets.
+
+=item $ATP_MAX_RESP_PKTS
+
+The maximum number of packets that will be sent (or received) in response
+to a transaction request.
 
 =back
 
