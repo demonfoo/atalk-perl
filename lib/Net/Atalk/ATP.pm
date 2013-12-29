@@ -177,14 +177,14 @@ sub thread_core { # {{{1
     my ($txid, $TxCB, $time, $from, $msg, %msgdata, $msgtype,
         $wants_sts, $is_eom, $seqno, $RqCB, $is_xo, $xo_tmout, $RspCB, $seq,
         $pktdata, $ctl_byte, $rv, $item, $port, $paddr, $addr,
-        $txkey, $cb);
+        $txkey, $cb, $rec, $filter);
 
 MAINLOOP:
     while ($shared->{exit} == 0) { # {{{2
         $time = gettimeofday();
 
         # Check for any timed callbacks.
-        foreach my $rec (@{$shared->{TimedCBs}}) { # {{{3
+        foreach $rec (@{$shared->{TimedCBs}}) { # {{{3
             if (($rec->{last_called} + $rec->{period}) < $time) {
                 no strict qw(refs);
                 $cb = $rec->{callback};
@@ -279,7 +279,7 @@ MAINLOOP:
                 $RqCB       = $RspCB->{RqCB};
                 $pktdata    = $RspCB->{RespData};
 
-                foreach my $seq (0 .. $#{$pktdata}) {
+                foreach $seq (0 .. $#{$pktdata}) {
                     # Check if the sequence mask bit corresponding to
                     # the sequence number is set.
                     if (not $RqCB->{seq_bmp} & (1 << $seq)) { next; }
@@ -307,7 +307,7 @@ MAINLOOP:
             # Try running the request block through any registered
             # transaction filter handlers before putting it on the
             # list for outside processing.
-            foreach my $filter (@{$shared->{RqFilters}}) { # {{{4
+            foreach $filter (@{$shared->{RqFilters}}) { # {{{4
                 no strict qw(refs);
                 $rv = &{$filter->[0]}(@{$filter}[1 .. $#{$filter}], $RqCB);
                 # If the filter returned something other than undef,
@@ -315,7 +315,7 @@ MAINLOOP:
                 # ATP user byte and payload blocks.
                 if (not $rv) { next; }
                 $pktdata = &share([]);
-                foreach my $seq (0 .. $#{$rv}) {
+                foreach $seq (0 .. $#{$rv}) {
                     $item = $rv->[$seq];
                     # Start borrowed code from RespondTransaction().
                     $ctl_byte = $ATP_TResp;
