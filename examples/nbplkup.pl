@@ -21,7 +21,7 @@ GetOptions('A=s' => \$localaddr,
            'r=i' => \$maxents,
            'h'   => \&usage) || usage();
 
-my ($host, $type, $zone);
+my ($host, $type, $zone) = qw(= = *);
 
 usage() if scalar(@ARGV) > 1;
 my ($target) = @ARGV;
