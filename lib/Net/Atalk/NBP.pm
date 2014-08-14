@@ -28,69 +28,69 @@ our $id = 1;
 
 # Construct an NBP packet.
 sub AssemblePacket {
-    my ($Function, $ID, @Tuples) = @_;
+    my ($function, $pid, @tuples) = @_;
 
-    croak("Can't have more than 15 tuples") if scalar(@Tuples) > 15;
-    return(pack('CCC', $DDPTYPE_NBP,
-                (($Function & 0x0f) << 4) | scalar(@Tuples), $ID) .
-                join(q{}, map { AssembleTuple(@{$_}) } @Tuples));
+    croak(q{Can't have more than 15 tuples}) if scalar @tuples > 15;
+    return pack('CCC', $DDPTYPE_NBP,
+                (($function & 0x0f) << 4) | scalar(@tuples), $pid) .
+                join q{}, map { AssembleTuple(@{$_}) } @tuples;
 }
 
 # Construct an NBP singleton tuple.
 sub AssembleTuple {
-    my ($NodeAddr, $SockNo, $Enumerator, $Object, $Type, $Zone) = @_;
+    my ($nodeaddr, $sockno, $enumerator, $object, $type, $zone) = @_;
 
-    return pack('a[3]CCC/aC/aC/a', atalk_aton($NodeAddr), $SockNo,
-            $Enumerator, $Object, $Type, $Zone);
+    return pack 'a[3]CCC/aC/aC/a', atalk_aton($nodeaddr), $sockno,
+            $enumerator, $object, $type, $zone;
 }
 
 # Unpack an NBP packet into its constituent fields.
 sub UnpackPacket {
     my ($packet) = @_;
 
-    my ($pkttype, $fn_cnt, $ID, $tupledata) = unpack('CCCa*', $packet);
+    my ($pkttype, $fn_cnt, $pid, $tupledata) = unpack 'CCCa*', $packet;
     return if $pkttype != $DDPTYPE_NBP;
-    my $Function = ($fn_cnt >> 4) & 0x0F;
+    my $function = ($fn_cnt >> 4) & 0x0F;
     my $tuplecount = $fn_cnt & 0x0F;
-    return($Function, $ID, UnpackTuples($tuplecount, $tupledata));
+    return($function, $pid, UnpackTuples($tuplecount, $tupledata));
 }
 
 # Unpack a packed set of NBP record tuples.
 sub UnpackTuples {
     my ($tuplecount, $tupledata) = @_;
 
-    my @tuple_data = unpack('a[3]CCC/aC/aC/a' x $tuplecount, $tupledata);
+    my @tuple_data = unpack 'a[3]CCC/aC/aC/a' x $tuplecount, $tupledata;
     my @tuples;
     foreach my $i (0 .. ($tuplecount - 1)) {
         my @tuple = @tuple_data[ ($i * 6) .. (($i * 6) + 5) ];
         $tuple[0] = atalk_ntoa($tuple[0]);
-        push(@tuples, [ @tuple ]);
+        push @tuples, [ @tuple ];
     }
     return(@tuples);
 }
 
 sub NBPLookup {
-    my($Obj, $Type, $Zone, $FromAddr, $maxresps) = @_;
+    my($obj, $type, $zone, $fromaddr, $maxresps) = @_;
 
     # Bind a local, broadcast-capable socket for sending out NBP
     # packets from (and receiving responses).
     my %sockparms = ( Proto     => 'ddp',
                       Broadcast => 1 );
-    if (defined $FromAddr) { $sockparms{LocalAddr} = $FromAddr }
+    if (defined $fromaddr) { $sockparms{LocalAddr} = $fromaddr }
     my $sock = IO::Socket::DDP->new(%sockparms) || croak $ERRNO;
     croak(q{Can't get local socket address, possibly atalk stack out of order})
             if not defined $sock->sockhost();
 
     # If the lookup properties are undef (or empty strings), assume
     # wildcards were intended.
-    if (!defined $Obj || $Obj eq q{}) { $Obj = q{=} }
-    if (!defined $Type || $Type eq q{}) { $Type = q{=} }
-    if (!defined $Zone || $Zone eq q{}) { $Zone = q{*} }
+    if (!defined $obj || $obj eq q{}) { $obj = q{=} }
+    if (!defined $type || $type eq q{}) { $type = q{=} }
+    if (!defined $zone || $zone eq q{}) { $zone = q{*} }
 
     # Construct a lookup packet with a single tuple, requesting the given
     # entity name, service type and zone.
     my $packet = AssemblePacket($NBP_LkUp, $id++,
-            [ $sock->sockhost(), $sock->sockport(), 0, $Obj, $Type, $Zone ]);
+            [ $sock->sockhost(), $sock->sockport(), 0, $obj, $type, $zone ]);
 
     # Try to look up the DDP port number for NBP; use the default if we
     # can't.
@@ -103,9 +103,9 @@ sub NBPLookup {
     my %rset;
     my @records;
 RETRY:
-    foreach my $tries (reverse(1 .. 3)) {
+    foreach my $tries (reverse 1 .. 3) {
         # Send the query packet to the global broadcast address.
-        send($sock, $packet, 0, $dest);
+        send $sock, $packet, 0, $dest;
 
         # Set up a poll() object to check the socket for incoming packets.
         my $poll = IO::Poll->new();
@@ -123,7 +123,7 @@ RETRY:
 
             # Read in the packet on the socket.
             my $rbuf;
-            return if not defined recv($sock, $rbuf, $DDP_MAXSZ, 0);
+            return if not defined recv $sock, $rbuf, $DDP_MAXSZ, 0;
 
             # Unpack the NBP packet.
             my ($fn, $r_id, @tuples) = UnpackPacket($rbuf);
@@ -135,10 +135,10 @@ RETRY:
             # Do some duplicate checking, then add the tuples to the set
             # to be returned to the caller.
             foreach my $tuple (@tuples) {
-                my $key = join(q{|}, @{$tuple}[3,4]);
+                my $key = join q{|}, @{$tuple}[3,4];
                 next if exists $rset{$key};
                 $rset{$key} = $tuple;
-                push(@records, $tuple);
+                push @records, $tuple;
                 last RETRY if $maxresps and scalar(@records) >= $maxresps;
             }
         }

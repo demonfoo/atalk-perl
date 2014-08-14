@@ -47,34 +47,33 @@ usage() if scalar(@ARGV) != 1;
 
 if ($datalen < 0) {
     print {*STDERR} "Data size less than 0 is impossible\n";
-    exit(1);
+    exit 1;
 }
 
-if ($datalen + length(pack('x[C]x[C]x[L!]')) > $DDP_MAXSZ) {
+if ($datalen + length(pack 'x[C]x[C]x[L!]') > $DDP_MAXSZ) {
     print {*STDERR} "Data size impossibly large for DDP\n";
-    exit(1);
+    exit 1;
 }
 
 my ($target) = @ARGV;
 
 my $paddr = atalk_aton($target);
 if (!defined $paddr) {
-    $target =~ s/(?::([\w\s\-]*|=))?(?:\@(\w*|\*))?$//;
-    my ($type, $zone) = ($1, $2);
-    my @tuples = NBPLookup($target, $type, $zone,
+    my ($node, $type, $zone) = $target =~
+            m{^(.*?)(?::([\w\s-]*|=))?(?:[@](\w*|[*]))?$}s;
+    my @tuples = NBPLookup($node, $type, $zone,
             exists $sockparms{LocalAddr} ? $sockparms{LocalAddr} : undef,
             1);
-    if (!scalar(@tuples)) {
-        printf {*STDERR} "Can't resolve \"\%s\"\n", $target;
-        exit(1);
+    if (not scalar @tuples) {
+        printf {*STDERR} "Can't resolve \"\%s\"\n", $node;
+        exit 1;
     }
-    $target = $tuples[0][0];
-    $paddr = atalk_aton($target);
+    $paddr = atalk_aton($tuples[0][0]);
 }
-my $sock = new IO::Socket::DDP(%sockparms) or croak("Can't bind: $EVAL_ERROR");
+my $sock = IO::Socket::DDP->new(%sockparms) or croak("Can't bind: $EVAL_ERROR");
 my $dest = pack_sockaddr_at($port, $paddr);
 
-my $stamplen = length(pack('x[L!]x[L!]'));
+my $stamplen = length pack 'x[L!]x[L!]';
 if ($datalen >= $stamplen) {
     $timing = 1;
 }
@@ -83,18 +82,18 @@ sub usage {
     print "usage:\t", $PROGRAM_NAME,
             " [-abDq] [-I source address] [-i interval] \n\t\t",
             "[-c count] [-s size] ( addr | nbpname )\n";
-    exit(1);
+    exit 1;
 }
 
 sub send_echo {
     # Declare $ERRNO as local so error codes in this context don't leak out.
-    local $ERRNO;
+    local $ERRNO = 0;
     my $trailer = "\0" x $datalen;
     if ($timing) {
-        substr($trailer, 0, $stamplen, pack('L!L!', gettimeofday()));
+        substr $trailer, 0, $stamplen, pack 'L!L!', gettimeofday();
     }
-    my $msg = pack('CCL!a*', $DDPTYPE_AEP, $AEPOP_REQUEST, $sent++, $trailer);
-    croak("send() failed: $ERRNO") if not defined send($sock, $msg, 0, $dest);
+    my $msg = pack 'CCL!a*', $DDPTYPE_AEP, $AEPOP_REQUEST, $sent++, $trailer;
+    croak("send() failed: $ERRNO") if not defined send $sock, $msg, 0, $dest;
     if ($count && $sent > $count) { finish() }
     $SIG{ALRM} = \&send_echo;
     return;
@@ -102,13 +101,13 @@ sub send_echo {
 
 sub finish {
     if ($sent) {
-        printf("\n---- \%s AEP Statistics ----\n", $target);
-        printf("\%d packets sent, \%d packets received\%s, \%d\%\% packet loss\n",
+        printf "\n---- \%s AEP Statistics ----\n", $target;
+        printf "\%d packets sent, \%d packets received\%s, \%d\%\% packet loss\n",
              $sent, $rcvd, $dups ? sprintf(', +%u duplicates', $dups) : q{},
-             ($sent - $rcvd) * 100 / $sent);
+             ($sent - $rcvd) * 100 / $sent;
         if ($rcvd && $timing) {
-            printf("round trip (msec) min/avg/max: \%.3f/\%.3f/\%.3f\n",
-                $msec_min, $msec_total / ($rcvd + $dups), $msec_max);
+            printf "round trip (msec) min/avg/max: \%.3f/\%.3f/\%.3f\n",
+                $msec_min, $msec_total / ($rcvd + $dups), $msec_max;
         }
     }
     exit($rcvd < 1);
@@ -126,26 +125,26 @@ sub status {
     return;
 }
 
-$SIG{INT}   = \&finish;
-$SIG{ALRM}  = \&send_echo;
-$SIG{QUIT}  = \&status;
+local $SIG{INT}   = \&finish;
+local $SIG{ALRM}  = \&send_echo;
+local $SIG{QUIT}  = \&status;
 
 setitimer(ITIMER_REAL, $interval, $interval);
 
 while (1) {
     my $rbuf;
-    my $from = recv($sock, $rbuf, $DDP_MAXSZ, 0);
+    my $from = recv $sock, $rbuf, $DDP_MAXSZ, 0;
     if (!defined $from) {
         next if $ERRNO == EINTR;
         croak("recv failed: $ERRNO");
     }
     if ($rcvd < $sent) { $rcvd++ } else { $dups++ }
     my ($ddptype, $aeptype, $seqno, $trailer) =
-         unpack('CCL!a*', $rbuf);
+         unpack 'CCL!a*', $rbuf;
     my $delta;
     if ($timing) {
         my ($now_sec, $now_usec) = gettimeofday();
-        my ($t_sec, $t_usec) = unpack('L!L!', $trailer);
+        my ($t_sec, $t_usec) = unpack 'L!L!', $trailer;
         $delta = ($now_sec - $t_sec) * 1000 + ($now_usec - $t_usec) / 1000;
         $msec_total += $delta;
         if ($delta > $msec_max) { $msec_max = $delta }
@@ -153,10 +152,16 @@ while (1) {
     }
     my $haddr = atalk_ntoa( (unpack_sockaddr_at($from))[1] );
     if (!$quiet) {
-        printf('[%f] ', time()) if $print_stamp;
-        printf('%d bytes from %s: aep_seq=%d', length($rbuf), $haddr, $seqno);
-        printf(', %.3f msec', $delta) if $timing;
-        print "\a" if $audible;
+        if ($print_stamp) {
+            printf '[%f] ', time;
+        }
+        printf '%d bytes from %s: aep_seq=%d', length $rbuf, $haddr, $seqno;
+        if ($timing) {
+            printf ', %.3f msec', $delta;
+        }
+        if ($audible) {
+            print "\a";
+        }
         print "\n";
     }
     if ($count && $seqno + 1 >= $count) { finish() }

@@ -23,13 +23,13 @@ my %proto_name      = reverse %proto_number;
 
 sub new {
     my $class = shift;
-    unshift(@_, 'PeerAddr') if scalar(@_) == 1;
+    unshift @_, 'PeerAddr' if scalar @_ == 1;
     return $class->SUPER::new(@_);
 }
 
 sub _cache_proto {
     my @proto = @_;
-    for (map { lc($_) } $proto[0], split(q{ }, $proto[1])) {
+    for (map { lc $_ } $proto[0], split q{ }, $proto[1]) {
         $proto_number{$_} = $proto[2];
     }
     $proto_name{$proto[2]} = $proto[0];
@@ -37,11 +37,11 @@ sub _cache_proto {
 }
 
 sub _get_proto_number {
-    my $name = lc(shift);
+    my $name = lc shift;
     return unless defined $name;
     return $proto_number{$name} if exists $proto_number{$name};
 
-    my @proto = getprotobyname($name);
+    my @proto = getprotobyname $name;
     return unless @proto;
     _cache_proto(@proto);
 
@@ -53,7 +53,7 @@ sub _get_proto_name {
     return unless defined $num;
     return $proto_name{$num} if exists $proto_name{$num};
 
-    my @proto = getprotobynumber($num);
+    my @proto = getprotobynumber $num;
     return unless @proto;
     _cache_proto(@proto);
 
@@ -65,9 +65,9 @@ sub _sock_info {
     my $origport = $port;
     my @serv = ();
 
-    $port = $1 if(defined $addr && $addr =~ s{:([\w()/]+)$}{});
+    $port = $1 if(defined $addr && $addr =~ s{:([\w()/]+)$}{}s);
 
-    if(defined $proto  && $proto =~ /\D/) {
+    if(defined $proto  && $proto =~ /\D/s) {
         my $num = _get_proto_number($proto);
         if (not defined $num) {
             $EVAL_ERROR = "Bad protocol '$proto'";
@@ -77,8 +77,8 @@ sub _sock_info {
     }
 
     if(defined $port) {
-        my $defport = ($port =~ s{[(](\d+)[)]$}{}) ? $1 : undef;
-        my $pnum = ($port =~ m{^(\d+)$})[0];
+        my $defport = ($port =~ s{[(](\d+)[)]$}{}s) ? $1 : undef;
+        my $pnum = ($port =~ m{^(\d+)$}s)[0];
 
         @serv = getservbyname($port, _get_proto_name($proto) || q{})
             if ($port =~ m{\D});
@@ -94,7 +94,7 @@ sub _sock_info {
 
     return ($addr || undef,
             $port || undef,
-            $proto || undef
+            $proto || undef,
            );
 }
 
@@ -102,10 +102,10 @@ sub _error {
     my $sock = shift;
     my $err = shift;
     {
-        local($ERRNO);
+        local $ERRNO = 0;
         my $title = ref($sock) . q{: };
-        $EVAL_ERROR = join(q{}, $_[0] =~ /^$title/ ? q{} : $title, @_);
-        $sock->close() if defined fileno($sock);
+        $EVAL_ERROR = join q{}, $_[0] =~ /^$title/s ? q{} : $title, @_;
+        $sock->close() if defined fileno $sock;
     }
     $ERRNO = $err;
     return;

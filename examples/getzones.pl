@@ -19,12 +19,16 @@ sub usage {
 my $zipcall = \&ZIPGetZoneList;
 my ($myzoneflag, $localzonesflag, $verbose);
 GetOptions( 'm' => sub {
-            usage() if defined $localzonesflag;
+            if (defined $localzonesflag) {
+                usage();
+            }
             $zipcall = \&ZIPGetMyZone;
             $myzoneflag = 1;
         },
             'l' => sub {
-            usage() if defined $myzoneflag;
+            if (defined $myzoneflag) {
+                usage();
+            }
             $zipcall = \&ZIPGetLocalZones;
             $localzonesflag = 1;
         },

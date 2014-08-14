@@ -21,13 +21,13 @@ GetOptions('A=s' => \$localaddr,
            'r=i' => \$maxents,
            'h'   => \&usage) || usage();
 
-my ($type, $zone);
+my ($host, $type, $zone);
 
 usage() if scalar(@ARGV) > 1;
-my ($host) = @ARGV;
-if (defined $host) {
-    $host =~ s/(?::([\w\s\-]*|=))?(?:\@(\w*|\*))?$//;
-    ($type, $zone) = ($1, $2);
+my ($target) = @ARGV;
+if (defined $target) {
+    ($host, $type, $zone) = $target =~
+            m{^(.*?)(?::([\w\s\-]*|=))?(?:[@](\w*|[*]))?$}s;
 }
 
 foreach my $tuple (NBPLookup($host, $type, $zone, $localaddr, $maxents)) {

@@ -38,11 +38,11 @@ sub atalk_aton {
 
     my($net, $node) = $addr =~ m{^
                                   (\d{1,5})     # match net number
-                                  \.            # separator char
+                                  [.]           # separator char
                                   (\d{1,3})     # match node number
-                                 $}x;
+                                 $}sx;
     return if not(defined $net or defined $node);
-    return pack('nCx', $net, $node);
+    return pack 'nCx', $net, $node;
 }
 
 Readonly our $ATADDR_ANY         => atalk_aton('0.0');
@@ -51,7 +51,7 @@ Readonly our $ATADDR_BCAST       => atalk_aton('0.255');
 sub atalk_ntoa {
     my($paddr) = @_;
 
-    return sprintf('%d.%d', unpack('nC', $paddr));
+    return sprintf '%d.%d', unpack 'nC', $paddr;
 }
 
 sub sockaddr_at {
@@ -66,16 +66,16 @@ sub pack_sockaddr_at {
     my($port, $paddr) = @_;
 
     my @arglist = (AF_APPLETALK, $port, $paddr);
-    if ($OSNAME ne 'linux') { unshift(@arglist, 16); }
+    if ($OSNAME ne 'linux') { unshift @arglist, 16; }
     # On *BSD, the first byte of sockaddr structs is a byte to indicate
     # the size of the struct. Linux doesn't do this.
-    return pack($OSNAME eq 'linux' ? 'SCxa[4]x[8]' : 'CCCxa[4]x[8]', @arglist);
+    return pack $OSNAME eq 'linux' ? 'SCxa[4]x[8]' : 'CCCxa[4]x[8]', @arglist;
 }
 
 sub unpack_sockaddr_at {
     my($psock) = @_;
 
-    return unpack('x[2]Cxa[4]x[8]', $psock);
+    return unpack 'x[2]Cxa[4]x[8]', $psock;
 }
 1;
 # vim: ts=4 ai et
