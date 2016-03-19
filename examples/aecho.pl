@@ -117,8 +117,10 @@ sub status {
     if ($sent) {
         printf {*STDERR} "\r\%d/\%d packets, \%d\%\% loss",
                 $sent, $rcvd, ($sent - $rcvd) * 100 / $sent;
-        printf {*STDERR} ', min/avg/max = %.3f/%.3f/%.3f ms', $msec_min,
-                $msec_total / ($rcvd + $dups), $msec_max if $timing;
+        if ($rcvd) {
+            printf {*STDERR} ', min/avg/max = %.3f/%.3f/%.3f ms', $msec_min,
+                    $msec_total / ($rcvd + $dups), $msec_max if $timing;
+        }
         print {*STDERR} "\n";
     }
     $SIG{QUIT} = \&status;
