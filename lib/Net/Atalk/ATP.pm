@@ -15,7 +15,7 @@ local $SIG{__WARN__} = \&Carp::cluck;
 
 use IO::Socket::DDP;
 use Net::Atalk;
-use Time::HiRes qw(gettimeofday);
+use Time::HiRes qw(gettimeofday usleep);
 use IO::Poll qw(POLLIN);
 use IO::Handle;
 use threads;
@@ -58,7 +58,7 @@ Readonly our $ATP_MAX_USERBYTES  => 4;
 Readonly my $ATP_THR_RUNNING     => 1;
 Readonly my $ATP_THR_NOT_STARTED => 0;
 Readonly my $ATP_THR_ENDED       => -1;
-Readonly my $ATP_POLL_INTERVAL   => 0.5;
+Readonly my $ATP_POLL_INTERVAL   => 0.125;
 Readonly my $ATP_TXID_LIMIT      => (2 ** 16);
 
 # symbols to export
@@ -215,6 +215,7 @@ MAINLOOP:
             # in the structure. We need to decrement the retry counter,
             # copy the updated sequence bitmap back into the packet data,
             # resend the packet, and update the retry counter.
+            #print {\*STDERR} (caller 0)[3], "(): Resending TReq for txid ", $scan_txid, "\n";
 
             # -1 is special, it means "just keep trying forever"
             if ($txcb->{ntries} != -1) { $txcb->{ntries}-- }
@@ -392,12 +393,12 @@ MAINLOOP:
             # all the data we're going to.
             if (!$txcb->{seq_bmp}) { # {{{4
                 ${$txcb->{sflag}} = 1;
-                delete $shared->{TxCB_list}{$txid};
                 $txcb->{sem}->up();
 
                 # If it was an XO transaction, we should send a TRel here.
                 next MAINLOOP if !$txcb->{is_xo};
 
+                #print {\*STDERR} (caller 0)[3], "(): Sending TRel for txid ", $txid, "\n";
                 # Don't need to preserve the XO bits.
                 substr $txcb->{msg}, 1, 1, pack 'C', $ATP_TRel;
                 $shared->{conn_sem}->down();
@@ -405,6 +406,7 @@ MAINLOOP:
                 # control fields, and user bytes...
                 send $conn, substr($txcb->{msg}, 0, 9), 0, $txcb->{target};
                 $shared->{conn_sem}->up();
+                delete $shared->{TxCB_list}{$txid};
                 next MAINLOOP;
             } # }}}4
 
@@ -512,6 +514,15 @@ sub SendTransaction { # {{{1
     # Indicate this as when the transaction has started (have to do this
     # before we queue the TxCB)...
     $txcb->{stamp} = gettimeofday();
+
+    # Seems that (at least on System 7?) transactions are processed 100%
+    # linearly (no queuing), and a transaction sent before the previous
+    # transaction's TRel goes through, the request gets ignored.
+    while (scalar keys %{$self->{Shared}{TxCB_list}} > 1) {
+        #print {\*STDERR} (caller 0)[3], "(): waiting for pending transactions to clear before submitting txid $txid\n";
+        #print {\*STDERR} (caller 0)[3], "(): pending transactions:", join(', ', keys %{$self->{Shared}{TxCB_list}}), "\n";
+        usleep(250);
+    }
 
     # Register our transaction control block so the thread can see it,
     # since we have no idea how soon the response will come back from
