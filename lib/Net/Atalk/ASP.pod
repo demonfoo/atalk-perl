@@ -122,7 +122,7 @@ on the protocol description as provided by Apple, in the book "Inside
 AppleTalk", chapter 11. "Inside AppleTalk" is available freely via the
 Internet in PDF form, at:
 
-L<http://developer.apple.com/MacOs/opentransport/docs/dev/Inside_AppleTalk.pdf>
+L<http://www.tmetz.net/os/Apple/Inside_AppleTalk.pdf>
 
 =head1 SEE ALSO
 

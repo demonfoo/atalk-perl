@@ -20,10 +20,10 @@ local $SIG{__WARN__} = \&Carp::cluck;
 
 Readonly my $SP_VERSION             => 0x0100;
 
-Readonly my $OP_SP_CLOSESESS        => 1;
+Readonly my $OP_SP_CLOSESESSION     => 1;
 Readonly my $OP_SP_COMMAND          => 2;
 Readonly my $OP_SP_GETSTATUS        => 3;
-Readonly my $OP_SP_OPENSESS         => 4;
+Readonly my $OP_SP_OPENSESSION      => 4;
 Readonly my $OP_SP_TICKLE           => 5;
 Readonly my $OP_SP_WRITE            => 6;
 Readonly my $OP_SP_WRITECONTINUE    => 7;
@@ -107,7 +107,7 @@ sub _CloseFilter { # {{{1
     my ($txtype, $sessid)   = unpack 'CCx[2]', $rqcb->{userbytes};
     my ($portno, $paddr)    = unpack_sockaddr_at($rqcb->{sockaddr});
 
-    if ($txtype == $OP_SP_CLOSESESS && $sessid == $sid
+    if ($txtype == $OP_SP_CLOSESESSION && $sessid == $sid
             && $realport == $portno) {
         $shared->{exit} = 1;
         return [ { userbytes => pack('x[4]'), data => q{}} ];
@@ -166,7 +166,7 @@ sub OpenSession { # {{{1
     my ($self) = @_;
 
     my $wss = $self->{atpsess}->sockport();
-    my $msg = pack 'CCS>', $OP_SP_OPENSESS, $wss, $SP_VERSION;
+    my $msg = pack 'CCS>', $OP_SP_OPENSESSION, $wss, $SP_VERSION;
     my $sa  = pack_sockaddr_at($self->{svcport}, atalk_aton($self->{host}));
     my ($rdata, $success);
     my $sem = $self->{atpsess}->SendTransaction(
@@ -242,7 +242,7 @@ sub SPCloseSession { return CloseSession(@_); }
 sub CloseSession { # {{{1
     my ($self) = @_;
 
-    my $msg = pack 'CCx[2]', $OP_SP_CLOSESESS, $self->{sessionid};
+    my $msg = pack 'CCx[2]', $OP_SP_CLOSESESSION, $self->{sessionid};
     my $sa = pack_sockaddr_at($self->{sessport} , atalk_aton($self->{host}));
     my ($rdata, $success);
     my $sem = $self->{atpsess}->SendTransaction(
